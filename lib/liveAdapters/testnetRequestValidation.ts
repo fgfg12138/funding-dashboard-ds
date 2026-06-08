@@ -19,7 +19,6 @@ import type {
   TestnetRequestValidationInput,
   TestnetRequestValidationResult,
 } from "./testnetRequestValidationTypes";
-import type { TestnetRouteErrorCode } from "./testnetRouteTypes";
 
 const VALID_EXCHANGE_IDS = ["binance", "okx", "bybit"] as const;
 
@@ -131,16 +130,10 @@ function buildResult(
   sanitizedPayload: Record<string, unknown> | undefined,
 ): TestnetRequestValidationResult {
   if (blocks.length > 0) {
-    const firstCode = blocks[0].reasonCode;
-    const errorCode: TestnetRouteErrorCode | "invalid-request" =
-      firstCode === "PAYLOAD_MISSING" || firstCode === "INVALID_EXCHANGE_ID" || firstCode === "SENSITIVE_FIELDS_DETECTED"
-        ? "invalid-request"
-        : "invalid-request";
-
     return {
       valid: false,
       severity: "blocked",
-      errorCode: errorCode as TestnetRouteErrorCode | "invalid-request",
+      errorCode: "invalid-request",
       reasonCodes: blocks.map((b) => b.reasonCode),
       messages: blocks.map((b) => b.message),
       sanitizedPayload,

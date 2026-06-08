@@ -3,7 +3,7 @@
  *
  * Verifies:
  * - All 4 routes import from the shared helper
- * - Shared helper calls evaluateTestnetRouteSecurity
+ * - Shared helper calls evaluateTestnetRouteSecurityGuard
  * - All routes return blocked/disabled only
  * - No fetch/axios/HMAC/decryptSecret in route files or shared helper
  * - No adapter or apiKeyStore imports in app/api/testnet
@@ -73,8 +73,8 @@ describe("Phase 5.11 — Shared Helper", () => {
     expect(content).toContain("buildGuardedBlockedResponse");
   });
 
-  it("calls evaluateTestnetRouteSecurity", () => {
-    expect(content).toContain("evaluateTestnetRouteSecurity");
+  it("calls evaluateTestnetRouteSecurityGuard", () => {
+    expect(content).toContain("evaluateTestnetRouteSecurityGuard");
   });
 
   it("returns 403 status", () => {

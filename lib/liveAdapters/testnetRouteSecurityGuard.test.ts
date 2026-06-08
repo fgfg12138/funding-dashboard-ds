@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { evaluateTestnetRouteSecurity } from "./testnetRouteSecurityGuard";
+import { evaluateTestnetRouteSecurityGuard } from "./testnetRouteSecurityGuard";
 import type { TestnetRouteSecurityChecklist, TestnetRouteSecurityGuardInput } from "./testnetRouteTypes";
 
 const defaultInput: TestnetRouteSecurityGuardInput = {
@@ -36,9 +36,9 @@ function makeInput(overrides: Partial<TestnetRouteSecurityChecklist>): TestnetRo
 
 // ─── Individual Check Failures ───────────────────────────
 
-describe("evaluateTestnetRouteSecurity — individual failures", () => {
+describe("evaluateTestnetRouteSecurityGuard — individual failures", () => {
   it("exchangeEnvValid false → blocked with exchange-env-invalid", () => {
-    const result = evaluateTestnetRouteSecurity(makeInput({ exchangeEnvValid: false }));
+    const result = evaluateTestnetRouteSecurityGuard(makeInput({ exchangeEnvValid: false }));
     expect(result.allowed).toBe(false);
     expect(result.errorCode).toBe("exchange-env-invalid");
     expect(result.severity).toBe("blocked");
@@ -46,7 +46,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("liveTradingBlocked false → blocked with live-trading-enabled", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({ exchangeEnvValid: true, liveTradingBlocked: false }),
     );
     expect(result.allowed).toBe(false);
@@ -54,7 +54,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("mainnetBlocked false → blocked with mainnet-allowed", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({ exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: false }),
     );
     expect(result.allowed).toBe(false);
@@ -62,7 +62,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("killSwitchDisabled false → blocked with kill-switch-active", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({ exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: false }),
     );
     expect(result.allowed).toBe(false);
@@ -70,7 +70,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("apiKeyVerified false → blocked with api-key-not-verified", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: false,
@@ -81,7 +81,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("withdrawPermissionDisabled false → blocked with withdraw-not-disabled", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: false,
@@ -92,7 +92,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("ipWhitelistPresent false → blocked with ip-whitelist-missing", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: false,
@@ -103,7 +103,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("riskGatePassed false → blocked with risk-gate-blocked", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: true,
@@ -115,7 +115,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("confirmationExists false → blocked with confirmation-missing", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: true,
@@ -127,7 +127,7 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
   });
 
   it("queueItemNotExpired false → blocked with queue-expired", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: true,
@@ -141,9 +141,9 @@ describe("evaluateTestnetRouteSecurity — individual failures", () => {
 
 // ─── Multiple Failures ──────────────────────────────────
 
-describe("evaluateTestnetRouteSecurity — multiple failures", () => {
+describe("evaluateTestnetRouteSecurityGuard — multiple failures", () => {
   it("aggregates multiple reasonCodes", () => {
-    const result = evaluateTestnetRouteSecurity(defaultInput);
+    const result = evaluateTestnetRouteSecurityGuard(defaultInput);
     expect(result.allowed).toBe(false);
     expect(result.reasonCodes.length).toBe(10);
     expect(result.messages.length).toBe(10);
@@ -152,9 +152,9 @@ describe("evaluateTestnetRouteSecurity — multiple failures", () => {
 
 // ─── All Checks Pass → Still Blocked (Phase 5.10) ───────
 
-describe("evaluateTestnetRouteSecurity — all checks pass", () => {
+describe("evaluateTestnetRouteSecurityGuard — all checks pass", () => {
   it("returns blocked with PHASE_5_10_SKELETON_BLOCK even when all checks pass", () => {
-    const result = evaluateTestnetRouteSecurity(
+    const result = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: true,
@@ -169,12 +169,12 @@ describe("evaluateTestnetRouteSecurity — all checks pass", () => {
 
 // ─── Source ──────────────────────────────────────────────
 
-describe("evaluateTestnetRouteSecurity — source", () => {
+describe("evaluateTestnetRouteSecurityGuard — source", () => {
   it("always returns source = testnet-route-skeleton", () => {
-    const result1 = evaluateTestnetRouteSecurity(defaultInput);
+    const result1 = evaluateTestnetRouteSecurityGuard(defaultInput);
     expect(result1.source).toBe("testnet-route-skeleton");
 
-    const result2 = evaluateTestnetRouteSecurity(
+    const result2 = evaluateTestnetRouteSecurityGuard(
       makeInput({
         exchangeEnvValid: true, liveTradingBlocked: true, mainnetBlocked: true, killSwitchDisabled: true,
         apiKeyVerified: true, withdrawPermissionDisabled: true, ipWhitelistPresent: true,

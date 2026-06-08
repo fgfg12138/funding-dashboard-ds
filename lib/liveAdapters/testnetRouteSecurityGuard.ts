@@ -43,7 +43,7 @@ const RULES: Rule[] = [
  * @param input - The security guard input with checklist, route name, exchange ID, and phase.
  * @returns The evaluation result with blocked/warning status and reason codes.
  */
-export function evaluateTestnetRouteSecurity(input: TestnetRouteSecurityGuardInput): TestnetRouteSecurityGuardResult {
+export function evaluateTestnetRouteSecurityGuard(input: TestnetRouteSecurityGuardInput): TestnetRouteSecurityGuardResult {
   const { checklist, routeName, exchangeId, now } = input;
 
   const failures: { errorCode: TestnetRouteErrorCode; message: string }[] = [];

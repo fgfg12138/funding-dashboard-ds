@@ -220,4 +220,11 @@ describe("Phase 5.21 — Docs Assertions", () => {
   it("contains full skeleton link diagram", () => {
     expect(closure).toContain("env → guard → secretPolicy → permissionCheck");
   });
+
+  it("states Phase 5.23 is runtime smoke tests / disabled route tests, not real testnet", () => {
+    expect(closure).toContain("Phase 5.23");
+    expect(closure).toContain("smoke tests");
+    expect(closure).toContain("Phase 5.24+");
+    expect(closure).not.toContain("Phase 5.23+ 才考虑真实 testnet");
+  });
 });

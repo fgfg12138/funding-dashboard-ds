@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { evaluateTestnetRouteSecurity } from "@/lib/liveAdapters/testnetRouteSecurityGuard";
+import { evaluateTestnetRouteSecurityGuard } from "@/lib/liveAdapters/testnetRouteSecurityGuard";
 import { createIdempotencyRecord } from "@/lib/liveAdapters/testnetIdempotencyStore";
 import { checkRateLimit, incrementRateLimit } from "@/lib/liveAdapters/testnetRateLimitStore";
 import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapters/testnetAuditStore";
@@ -61,7 +61,7 @@ export function buildBlockedTestnetResponse(routeName: TestnetRouteName, exchang
 }
 
 /**
- * Build a guarded blocked response — calls evaluateTestnetRouteSecurity
+ * Build a guarded blocked response — calls evaluateTestnetRouteSecurityGuard
  * with default (all-false) checklist, then returns 403.
  *
  * Even if guard evaluated all-true, Phase 5.11 still blocks.
@@ -75,7 +75,7 @@ export function buildGuardedBlockedResponse(routeName: TestnetRouteName, exchang
     phase: "5.10-skeleton",
   };
 
-  const guardResult = evaluateTestnetRouteSecurity(input);
+  const guardResult = evaluateTestnetRouteSecurityGuard(input);
 
   return NextResponse.json(
     {
@@ -120,7 +120,7 @@ export function buildGuardedBlockedResponseWithIdempotency(
     phase: "5.10-skeleton",
   };
 
-  const guardResult = evaluateTestnetRouteSecurity(input);
+  const guardResult = evaluateTestnetRouteSecurityGuard(input);
 
   const idempotencyResult = createIdempotencyRecord({
     idempotencyKey: key,
@@ -215,7 +215,7 @@ export function buildGuardedBlockedResponseWithRateLimit(
     errors: envValidation.errors,
   };
 
-  const guardResult = evaluateTestnetRouteSecurity(guardInput);
+  const guardResult = evaluateTestnetRouteSecurityGuard(guardInput);
 
   // Evaluate secret access policy
   const secretPolicy = evaluateTestnetSecretAccessPolicy({
