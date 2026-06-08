@@ -28,5 +28,5 @@ export type SecretVaultPolicyResult = {
   severity: "blocked" | "warning" | "info";
   reasonCodes: string[];
   messages: string[];
-  source: "secret-vault-policy-design";
+  source: "secret-vault-design";
 };

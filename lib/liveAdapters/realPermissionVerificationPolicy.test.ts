@@ -57,7 +57,7 @@ describe("evaluateRealPermissionVerificationPolicy", () => {
     const result = evaluateRealPermissionVerificationPolicy(
       makeInput({ environment: "production", vaultPolicyAllowed: false, auditPersistenceReady: false, killSwitchDisabled: false }),
     );
-    expect(result.reasonCodes.length).toBeGreaterThanOrEqual(4);
+    expect(result.reasonCodes.length).toBe(4);
     expect(result.reasonCodes).toContain("ENVIRONMENT_NOT_TESTNET");
     expect(result.reasonCodes).toContain("VAULT_POLICY_NOT_ALLOWED");
     expect(result.reasonCodes).toContain("AUDIT_PERSISTENCE_NOT_READY");

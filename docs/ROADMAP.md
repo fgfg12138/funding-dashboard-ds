@@ -996,9 +996,9 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-### Phase 6 — 真实 Testnet 集成规划
+### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0 已完成。Phase 6.1+ BLOCKED — 等待代码审查、外部安全审查和项目决策。**
+> **状态：Phase 6.0–6.6 已完成。Phase 6.7 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 

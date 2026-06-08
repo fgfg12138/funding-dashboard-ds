@@ -30,7 +30,7 @@ describe("evaluateSecretVaultPolicy", () => {
     expect(result.allowedToAccessVault).toBe(false);
     expect(result.reasonCodes).toContain("VAULT_PROVIDER_DISABLED");
     expect(result.severity).toBe("blocked");
-    expect(result.source).toBe("secret-vault-policy-design");
+    expect(result.source).toBe("secret-vault-design");
   });
 
   // ─── Environment ────────────────────────────────────
@@ -68,7 +68,7 @@ describe("evaluateSecretVaultPolicy", () => {
     const result = evaluateSecretVaultPolicy(
       makeInput({ provider: "disabled", environment: "production", auditPersistenceReady: false, killSwitchDisabled: false }),
     );
-    expect(result.reasonCodes.length).toBeGreaterThanOrEqual(4);
+    expect(result.reasonCodes.length).toBe(4);
     expect(result.reasonCodes).toContain("VAULT_PROVIDER_DISABLED");
     expect(result.reasonCodes).toContain("ENVIRONMENT_NOT_TESTNET");
     expect(result.reasonCodes).toContain("AUDIT_PERSISTENCE_NOT_READY");
@@ -86,12 +86,12 @@ describe("evaluateSecretVaultPolicy", () => {
 
   // ─── Source ──────────────────────────────────────────
 
-  it("source is always secret-vault-policy-design", () => {
+  it("source is always secret-vault-design", () => {
     const r1 = evaluateSecretVaultPolicy(makeInput());
-    expect(r1.source).toBe("secret-vault-policy-design");
+    expect(r1.source).toBe("secret-vault-design");
 
     const r2 = evaluateSecretVaultPolicy(makeInput({ provider: "disabled" }));
-    expect(r2.source).toBe("secret-vault-policy-design");
+    expect(r2.source).toBe("secret-vault-design");
   });
 });
 

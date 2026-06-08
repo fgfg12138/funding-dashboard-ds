@@ -1,6 +1,6 @@
 # Phase 6.0 Real Testnet Readiness Review
 
-> **Phase 6.0 — Readiness Assessment (updated through Phase 6.6 Design Closure)**
+> **Phase 6.0 — Readiness Assessment (updated through Phase 6.6 Design Closure) — Review Only, No Real Requests**
 > **状态：✅ Phase 6.1–6.5 设计完成，Phase 6.6 Closure 完成**
 > **结论：❌ NOT READY (ready=false) — 7 个必要实现项尚未开始**
 
@@ -117,5 +117,5 @@ npx next build
 
 ## 7. 主网警告
 
-> **⚠ 即使 Phase 6 开始真实 testnet 集成，也绝不能直接接主网。**
+> **⚠ If real testnet integration begins in a future Phase, mainnet must never be connected.**
 > **主网交易需要独立的 Phase 7 安全审查 + 合规审查 + 项目决策。**

@@ -213,6 +213,7 @@ describe("PHASE_6_REAL_TESTNET_READINESS_REVIEW.md — content", () => {
   });
 
   it("declares no-real-testnet", () => {
-    expect(doc).toContain("绝不能直接接主网");
+    expect(doc).toContain("review");
+    expect(doc).toContain("mainnet must never be connected");
   });
 });

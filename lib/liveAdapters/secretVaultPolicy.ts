@@ -67,7 +67,7 @@ export function evaluateSecretVaultPolicy(
       severity: "blocked",
       reasonCodes: blocks.map((b) => b.reasonCode),
       messages: blocks.map((b) => b.message),
-      source: "secret-vault-policy-design",
+      source: "secret-vault-design",
     };
   }
 
@@ -77,6 +77,6 @@ export function evaluateSecretVaultPolicy(
     severity: "info",
     reasonCodes: ["PHASE_6_2_VAULT_ACCESS_DISABLED"],
     messages: ["All vault policy checks passed — vault access blocked by Phase 6.2 design"],
-    source: "secret-vault-policy-design",
+    source: "secret-vault-design",
   };
 }

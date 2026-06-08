@@ -7,7 +7,6 @@
 
 import type {
   PersistentAuditTableName,
-  PersistentAuditEvent,
   PersistentAuditSeverity,
   PersistentAuditSource,
   PersistentAuditRetentionPolicy,

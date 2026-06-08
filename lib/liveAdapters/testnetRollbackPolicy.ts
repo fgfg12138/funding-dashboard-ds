@@ -61,7 +61,7 @@ export function evaluateTestnetRollbackPolicy(
     if (orderStatus === "filled" || orderStatus === "partial") {
       actions.push("reconciliation-required");
     }
-    blocks.push({ reasonCode: "KILL_SWITCH_ENABLED", message: "Kill Switch is enabled — emergency rollback actions planned" });
+    blocks.push({ reasonCode: "KILL_SWITCH_ACTIVE", message: "Kill Switch is enabled — emergency rollback actions planned" });
   }
 
   // Rule 5: unknown/partial/submitted → cancel-order-planned

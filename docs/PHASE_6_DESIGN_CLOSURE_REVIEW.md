@@ -109,4 +109,4 @@
 ## 7. 下一阶段提醒
 
 > **Phase 6.7 仅限于 code review fixes，不允许真实请求、签名、Secret 解密。**
-> **Phase 6.8+ 才考虑真实 testnet 集成，且绝不能直接接主网。**
+> **Real testnet integration requires a separate Phase with explicit approval — no timeline is set.**
