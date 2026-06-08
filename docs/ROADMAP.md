@@ -1034,7 +1034,30 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ middleware 修改
 - ✗ 任何新增 API
 
-#### Phase 6.1+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.1 — Persistent Audit Storage Design（✅ 已完成 — Design Only）
+
+##### 包含
+- `docs/PERSISTENT_AUDIT_STORAGE_DESIGN.md` — 4.7 KB 设计文档
+- `lib/audit/persistentAuditTypes.ts` — 持久化审计类型
+- `lib/audit/persistentAuditSchema.ts` — schema 常量 + 4 个纯函数
+- `lib/audit/persistentAuditSchema.test.ts` — 39 个测试
+
+##### 设计覆盖
+- 表结构：audit_events / audit_event_metadata / audit_integrity_checks
+- 6 种事件分类（local / testnet route / risk gate / permission / secret access / order lifecycle）
+- 敏感字段自动移除（sanitize）
+- Hash chain 设计（metadata hash skeleton）
+- Retention 策略（local 7d / staging 30d / production 90d）
+- Export / Backup / Restore 设计
+
+##### 不包含
+- ✗ 数据库连接（SQLite/Postgres/Prisma）
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.2+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 

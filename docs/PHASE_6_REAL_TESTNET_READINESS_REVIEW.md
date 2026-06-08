@@ -1,7 +1,7 @@
 # Phase 6.0 Real Testnet Readiness Review
 
-> **Phase 6.0 — Readiness Assessment**
-> **状态：✅ 已完成 — Review Only**
+> **Phase 6.0 — Readiness Assessment (updated Phase 6.1)**
+> **状态：✅ 已完成 — Review + Persistent Audit Design Started**
 > **结论：❌ NOT READY (ready=false) — 10 个必要项待完成**
 
 ---
@@ -82,21 +82,22 @@
 
 ---
 
-## 5. 进入 Phase 6.1+ 前置条件
+## 5. 进入 Phase 6.2+ 前置条件
 
-> **以下条件全部满足后方可进入 Phase 6.1 真实 testnet 实现。**
+> **以下条件全部满足后方可进入 Phase 6.2 真实 testnet 实现。**
 
 | # | 条件 | 当前状态 |
 |---|------|---------|
 | 1 | Phase 5 RC 代码审查通过 | ⏳ 待完成 |
 | 2 | 外部安全审查通过 | ⏳ 待完成 |
-| 3 | Server-side secret retrieval 实现 | 🔴 未开始 |
-| 4 | Signing implementation (HMAC/ed25519) | 🔴 未开始 |
-| 5 | Real Binance testnet adapter | 🔴 未开始 |
-| 6 | Middleware testnet allowlist 设计 | 🔴 未开始 |
-| 7 | Kill Switch 实现 | ⚪ 未开始 |
-| 8 | Persistent audit storage | 🔴 未开始 |
-| 9 | Rollback plan 文档 | 🔴 未开始 |
+| 3 | Persistent audit storage design | ✅ Phase 6.1 已完成 |
+| 4 | Persistent audit storage implementation | 🔴 待实现 |
+| 5 | Server-side secret retrieval 实现 | 🔴 未开始 |
+| 6 | Signing implementation (HMAC/ed25519) | 🔴 未开始 |
+| 7 | Real Binance testnet adapter | 🔴 未开始 |
+| 8 | Middleware testnet allowlist 设计 | 🔴 未开始 |
+| 9 | Kill Switch 实现 | ⚪ 未开始 |
+| 10 | Rollback plan 文档 | 🔴 未开始 |
 
 ---
 
