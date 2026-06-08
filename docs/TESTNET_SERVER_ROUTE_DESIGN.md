@@ -289,7 +289,26 @@
 
 所有 route handler **不连接交易所、不解密 Secret、不签名、不发网络请求**。
 
-### Phase 5.10+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.10 ✅ — Testnet Route Security Guard Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRouteSecurityGuard.ts` | 安全检查纯函数 |
+| `lib/liveAdapters/testnetRouteSecurityGuard.test.ts` | 17 个测试 |
+
+#### Security Guard 行为
+- 输入：`TestnetRouteSecurityGuardInput`（checklist + routeName + exchangeId + phase）
+- 输出：`TestnetRouteSecurityGuardResult`（allowed + severity + reasonCodes）
+- 10 项检查全部失败时返回对应 errorCode
+- 全部通过时仍返回 `PHASE_5_10_SKELETON_BLOCK` blocked
+- `source` 始终 `testnet-route-skeleton`
+- 纯函数，无网络请求、无解密、无签名
+
+#### 集成
+- `POST /api/testnet/orders/preview-submit` 调用 guard 但仍返回 403
+
+### Phase 5.11+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

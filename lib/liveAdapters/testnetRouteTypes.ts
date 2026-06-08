@@ -220,3 +220,24 @@ export type TestnetFailureResult = {
   retryable: boolean;
   requiresReconciliation: boolean;
 };
+
+// ─── Security Guard ──────────────────────────────────────
+
+export type SecurityGuardSeverity = "blocked" | "warning" | "info";
+
+export type TestnetRouteSecurityGuardInput = {
+  checklist: TestnetRouteSecurityChecklist;
+  routeName: TestnetRouteName;
+  exchangeId: string;
+  now: number;
+  phase: "5.10-skeleton";
+};
+
+export type TestnetRouteSecurityGuardResult = {
+  allowed: boolean;
+  severity: SecurityGuardSeverity;
+  errorCode?: TestnetRouteErrorCode;
+  reasonCodes: string[];
+  messages: string[];
+  source: "testnet-route-skeleton";
+};

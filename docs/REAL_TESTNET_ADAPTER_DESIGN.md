@@ -385,3 +385,51 @@ const ALLOWED_TESTNET_PREFIXES = [
 | 签名 | ❌ 无 |
 | 网络请求 | ❌ 无 |
 | 真实下单 | ❌ 无 |
+
+---
+
+## 18. Phase 5.10 — Testnet Route Security Guard Skeleton（已完成）
+
+> **⚠ Security Guard Skeleton 不连接真实 Testnet。**
+> **不解密 Secret、不签名、不发网络请求。**
+
+### 18.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRouteSecurityGuard.ts` | 安全检查纯函数 |
+| `lib/liveAdapters/testnetRouteSecurityGuard.test.ts` | 17 个测试 |
+
+### 18.2 Security Guard 规则
+
+| # | 检查项 | 失败 → errorCode |
+|---|--------|-----------------|
+| 1 | exchangeEnvValid | exchange-env-invalid |
+| 2 | liveTradingBlocked | live-trading-enabled |
+| 3 | mainnetBlocked | mainnet-allowed |
+| 4 | killSwitchDisabled | kill-switch-active |
+| 5 | apiKeyVerified | api-key-not-verified |
+| 6 | withdrawPermissionDisabled | withdraw-not-disabled |
+| 7 | ipWhitelistPresent | ip-whitelist-missing |
+| 8 | riskGatePassed | risk-gate-blocked |
+| 9 | confirmationExists | confirmation-missing |
+| 10 | queueItemNotExpired | queue-expired |
+
+### 18.3 关键行为
+
+- 纯函数，无副作用
+- 输入 checklist 全部为默认 false
+- 全部通过后仍 blocked（`PHASE_5_10_SKELETON_BLOCK`）
+- `source` 始终 `testnet-route-skeleton`
+- 集成到 `POST /api/testnet/orders/preview-submit` 但仍返回 403
+
+### 18.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Guard 纯函数实现 | ✅ |
+| Guard 集成到 route | ✅（仍返回 403） |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
