@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { evaluateTestnetRouteSecurity } from "@/lib/liveAdapters/testnetRouteSecurityGuard";
 import { createIdempotencyRecord } from "@/lib/liveAdapters/testnetIdempotencyStore";
 import { checkRateLimit, incrementRateLimit } from "@/lib/liveAdapters/testnetRateLimitStore";
+import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapters/testnetAuditStore";
 import type {
   TestnetRouteName,
   TestnetRouteSecurityChecklist,
@@ -167,6 +168,22 @@ export function buildGuardedBlockedResponseWithRateLimit(
 ) {
   const key = idempotencyKey ?? "skeleton-disabled";
   const exch = exchangeId ?? "binance";
+  const requestId = buildTestnetRequestId(routeName, exch);
+  const method = routeName === "account-snapshot" || routeName === "orders-status" ? "GET" : "POST";
+
+  // Audit: request received
+  createTestnetAuditEvent({
+    eventType: "route_request_received",
+    routeName,
+    method,
+    exchangeId: exch,
+    requestId,
+    idempotencyKey: key,
+    clientOrderId: `skeleton-${key}`,
+    severity: "info",
+    message: "Testnet route request received (skeleton)",
+    metadata: { phase: "5.14-skeleton" },
+  });
 
   const guardInput: TestnetRouteSecurityGuardInput = {
     checklist: buildDefaultSkeletonChecklist(),
@@ -190,17 +207,70 @@ export function buildGuardedBlockedResponseWithRateLimit(
     return incrementRateLimit(rlInput);
   });
 
+  // Audit: rate limited if any scope blocked
+  const anyRateLimited = rateLimitResults.some((r) => !r.allowed);
+  if (anyRateLimited) {
+    createTestnetAuditEvent({
+      eventType: "route_rate_limited",
+      routeName,
+      method,
+      exchangeId: exch,
+      requestId,
+      idempotencyKey: key,
+      severity: "warning",
+      message: "Rate limit exceeded in skeleton",
+      metadata: {
+        exchangeAllowed: rateLimitResults[0].allowed,
+        routeAllowed: rateLimitResults[1].allowed,
+        sessionAllowed: rateLimitResults[2].allowed,
+      },
+    });
+  }
+
   const idempotencyResult = createIdempotencyRecord({
     idempotencyKey: key,
     clientOrderId: `skeleton-${key}`,
     routeName,
     exchangeId: exch,
-    requestFields: { routeName, exchangeId: exch, phase: "5.13-skeleton" },
+    requestFields: { routeName, exchangeId: exch, phase: "5.14-skeleton" },
     responseSnapshot: {
       success: false,
       errorCode: guardResult.errorCode ?? "exchange-env-invalid",
       message: SKELETON_MESSAGE,
       httpStatus: 403,
+    },
+  });
+
+  // Audit: duplicate blocked
+  if (idempotencyResult.isDuplicate) {
+    createTestnetAuditEvent({
+      eventType: "route_duplicate_blocked",
+      routeName,
+      method,
+      exchangeId: exch,
+      requestId,
+      idempotencyKey: key,
+      clientOrderId: `skeleton-${key}`,
+      severity: "warning",
+      message: "Duplicate request blocked by idempotency skeleton",
+      metadata: { existingRecordId: idempotencyResult.record.id },
+    });
+  }
+
+  // Audit: skeleton blocked
+  createTestnetAuditEvent({
+    eventType: "route_skeleton_blocked",
+    routeName,
+    method,
+    exchangeId: exch,
+    requestId,
+    idempotencyKey: key,
+    clientOrderId: `skeleton-${key}`,
+    severity: "blocked",
+    message: SKELETON_MESSAGE,
+    metadata: {
+      guardErrorCode: guardResult.errorCode ?? "none",
+      isDuplicate: idempotencyResult.isDuplicate,
     },
   });
 
@@ -229,6 +299,7 @@ export function buildGuardedBlockedResponseWithRateLimit(
         recordId: idempotencyResult.record.id,
       },
       rateLimit: rateLimitMeta,
+      audit: { requestId },
       auditId: `skeleton-${Date.now()}`,
     },
     { status: 403 },

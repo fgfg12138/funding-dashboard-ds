@@ -583,3 +583,56 @@ const ALLOWED_TESTNET_PREFIXES = [
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 22. Phase 5.14 — Testnet Audit Server Event Skeleton（已完成）
+
+> **⚠ 审计 skeleton 不存储真实 Secret、API Key 或交易数据。**
+> **不解密 Secret、不签名、不发网络请求。**
+
+### 22.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetAuditTypes.ts` | 审计事件类型 |
+| `lib/liveAdapters/testnetAuditStore.ts` | In-memory 审计存储 |
+| `lib/liveAdapters/testnetAuditStore.test.ts` | 20 个测试 |
+
+### 22.2 审计事件类型
+
+| 事件 | 触发条件 | severity |
+|------|---------|---------|
+| `route_request_received` | 请求到达 skeleton | info |
+| `route_skeleton_blocked` | skeleton 返回 403 | blocked |
+| `route_rate_limited` | 任意 scope 超限 | warning |
+| `route_duplicate_blocked` | 幂等检测到重复 | warning |
+
+### 22.3 Store 方法
+
+| 方法 | 说明 |
+|------|------|
+| `createTestnetAuditEvent(input)` | 创建审计事件 |
+| `listTestnetAuditEvents()` | 列出所有事件（最新优先） |
+| `filterTestnetAuditEvents(filters)` | 按 routeName/eventType/severity 过滤 |
+| `countTestnetAuditEventsByType()` | 按类型统计 |
+| `clearTestnetAuditEvents()` | 清空所有事件 |
+| `buildTestnetRequestId(route, exchange)` | 生成 `sk-audit-{route}-{exchange}-{ts}-{seq}` |
+
+### 22.4 集成
+
+- `buildGuardedBlockedResponseWithRateLimit` 在每个请求周期创建 2-4 个审计事件
+- 顺序：`route_request_received` → (可选 `route_rate_limited`) → (可选 `route_duplicate_blocked`) → `route_skeleton_blocked`
+- 仍返回 403
+
+### 22.5 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| 审计类型定义 | ✅ |
+| In-memory store 实现 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

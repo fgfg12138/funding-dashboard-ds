@@ -384,7 +384,31 @@
 - `buildGuardedBlockedResponseWithRateLimit` 调用 guard + 幂等 + 限流，仍返回 403
 - 响应体包含 `rateLimit` 元数据
 
-### Phase 5.14+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.14 ✅ — Testnet Audit Server Event Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetAuditTypes.ts` | 审计事件类型 |
+| `lib/liveAdapters/testnetAuditStore.ts` | In-memory 审计存储 |
+| `lib/liveAdapters/testnetAuditStore.test.ts` | 20 个测试 |
+
+#### 事件类型
+- `route_request_received` — 每次请求到达
+- `route_skeleton_blocked` — skeleton 返回 403
+- `route_rate_limited` — 限流命中
+- `route_duplicate_blocked` — 幂等重复
+
+#### Store 方法
+- `createTestnetAuditEvent` / `listTestnetAuditEvents` / `filterTestnetAuditEvents`
+- `countTestnetAuditEventsByType` / `clearTestnetAuditEvents`
+- `buildTestnetRequestId` — 生成 `sk-audit-{route}-{exchange}-{ts}-{seq}`
+
+#### 集成
+- `buildGuardedBlockedResponseWithRateLimit` 在每个请求周期中创建 2-4 个审计事件
+- 仍返回 403
+
+### Phase 5.15+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

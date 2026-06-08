@@ -542,13 +542,54 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 真实下单
 - ✗ middleware 白名单修改
 
-### Phase 5.14+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.14 — Testnet Audit Server Event Skeleton（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/testnetAuditTypes.ts` — 审计事件类型
+- `lib/liveAdapters/testnetAuditStore.ts` — In-memory 审计存储
+- `lib/liveAdapters/testnetAuditStore.test.ts` — 20 个测试
+- `app/api/testnet/_shared/blockedResponse.ts` — 集成审计事件到 `buildGuardedBlockedResponseWithRateLimit`
+
+#### 审计事件类型
+| 事件 | 触发条件 | 严重度 |
+|------|---------|--------|
+| `route_request_received` | 每次请求到达 skeleton | info |
+| `route_skeleton_blocked` | skeleton 返回 403 | blocked |
+| `route_rate_limited` | 任意 scope 超限 | warning |
+| `route_duplicate_blocked` | 幂等检测到重复 | warning |
+
+#### Store 方法
+| 方法 | 说明 |
+|------|------|
+| `createTestnetAuditEvent(input)` | 创建审计事件 |
+| `listTestnetAuditEvents()` | 列出所有事件（最新优先） |
+| `filterTestnetAuditEvents(filters)` | 按 routeName/eventType/severity 过滤 |
+| `countTestnetAuditEventsByType()` | 按类型统计 |
+| `clearTestnetAuditEvents()` | 清空所有事件 |
+| `buildTestnetRequestId(route, exchange)` | 生成请求 ID |
+
+#### 集成
+- `buildGuardedBlockedResponseWithRateLimit` 在响应周期中创建 2-4 个审计事件：
+  1. `route_request_received`（每次）
+  2. `route_rate_limited`（如果限流命中）
+  3. `route_duplicate_blocked`（如果幂等重复）
+  4. `route_skeleton_blocked`（每次）
+- 仍返回 403
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单（不在审计中记录交易数据）
+- ✗ middleware 白名单修改
+
+### Phase 5.15+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.13 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store 链路完整
+- ✅ Phase 5.0–5.14 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
