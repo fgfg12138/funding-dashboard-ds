@@ -848,3 +848,50 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 28. Phase 5.20 — Testnet Request Validation Skeleton（已完成）
+
+> **⚠ 请求校验 skeleton 不提交订单、不签名、不解密。**
+
+### 28.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRequestValidationTypes.ts` | 校验类型 |
+| `lib/liveAdapters/testnetRequestValidation.ts` | 校验纯函数 |
+| `lib/liveAdapters/testnetRequestValidation.test.ts` | 26 个测试 |
+
+### 28.2 校验规则
+
+| 条件 | reasonCode |
+|------|-----------|
+| payload 缺失 | PAYLOAD_MISSING |
+| exchangeId 缺失 | EXCHANGE_ID_MISSING |
+| exchangeId 不支持 | INVALID_EXCHANGE_ID |
+| symbol 缺失 | SYMBOL_MISSING |
+| side 无效 | INVALID_SIDE |
+| orderType 无效 | INVALID_ORDER_TYPE |
+| quantity ≤ 0 | INVALID_QUANTITY |
+| Limit 无 price | LIMIT_PRICE_REQUIRED |
+| cancel/status 无 orderId | ORDER_ID_MISSING |
+| 含敏感字段（secret/apiSecret/secretKey/password/privateKey） | SENSITIVE_FIELDS_DETECTED + 自动移除 |
+
+### 28.3 集成
+
+- `blockedResponse.ts` 调用 `evaluateTestnetRequestValidation`
+- 响应体新增 `validation` 字段
+- 仍返回 403
+
+### 28.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| 校验类型定义 | ✅ |
+| 校验纯函数 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实请求提交 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

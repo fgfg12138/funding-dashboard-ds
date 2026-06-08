@@ -498,7 +498,28 @@
 - `blockedResponse.ts` 调用 `evaluateTestnetPermissionCheck`
 - 响应体新增 `permission` 字段
 
-### Phase 5.20+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.20 ✅ — Testnet Request Validation Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRequestValidationTypes.ts` | 校验类型 |
+| `lib/liveAdapters/testnetRequestValidation.ts` | 校验纯函数 |
+| `lib/liveAdapters/testnetRequestValidation.test.ts` | 26 个测试 |
+
+#### 校验规则
+- payload/exchangeId 缺失 → blocked
+- exchangeId 仅允许 binance/okx/bybit
+- submit: symbol, side, orderType, quantity > 0 检查
+- Limit order 需要 price > 0
+- cancel/status 需要 orderId
+- 敏感字段（secret, apiSecret, password 等）自动检测并移除
+
+#### 集成
+- `blockedResponse.ts` 调用 `evaluateTestnetRequestValidation`
+- 响应体新增 `validation` 字段
+
+### Phase 5.21+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

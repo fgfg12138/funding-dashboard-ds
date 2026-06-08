@@ -13,6 +13,7 @@ import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapte
 import { parseTestnetEnvConfig, validateTestnetEnvConfig } from "@/lib/liveAdapters/testnetEnvConfig";
 import { evaluateTestnetSecretAccessPolicy } from "@/lib/liveAdapters/testnetSecretPolicy";
 import { evaluateTestnetPermissionCheck } from "@/lib/liveAdapters/testnetPermissionCheck";
+import { evaluateTestnetRequestValidation } from "@/lib/liveAdapters/testnetRequestValidation";
 import type {
   TestnetRouteName,
   TestnetRouteSecurityChecklist,
@@ -234,6 +235,14 @@ export function buildGuardedBlockedResponseWithRateLimit(
     phase: "5.19-permission-skeleton",
   });
 
+  // Evaluate request validation (synthetic payload — no real body parsing)
+  const validation = evaluateTestnetRequestValidation({
+    routeName,
+    method,
+    payload: { exchangeId: exch },
+    phase: "5.20-request-validation-skeleton",
+  });
+
   // Check + increment rate limits for all 3 scopes
   const rateLimitInputs: TestnetRateLimitInput[] = [
     { scope: "exchange", routeName, exchangeId: exch },
@@ -351,6 +360,12 @@ export function buildGuardedBlockedResponseWithRateLimit(
         canWithdraw: permissionCheck.canWithdraw,
         ipWhitelistPresent: permissionCheck.ipWhitelistPresent,
         source: permissionCheck.source,
+      },
+      validation: {
+        valid: validation.valid,
+        severity: validation.severity,
+        reasonCodes: validation.reasonCodes,
+        source: validation.source,
       },
       rateLimit: rateLimitMeta,
       audit: { requestId },
