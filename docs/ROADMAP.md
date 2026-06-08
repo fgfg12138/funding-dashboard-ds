@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.13 已完成。Phase 6.14 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.14 已完成。Phase 6.15 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1377,7 +1377,23 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 真实 testnet 请求
 - ✗ 其他 blocker
 
-#### Phase 6.14+ — 后续阶段（BLOCKED — 等待明确批准）
+#### Phase 6.14 — Persistent Audit Remediation Closure（✅ 已完成 — Preparation Closure）
+
+##### 包含
+- `docs/PERSISTENT_AUDIT_REMEDIATION_CLOSURE.md` — 3.0 KB closure 文档
+- `tests/phase6PersistentAuditRemediationClosure.test.ts` — 66 个边界测试
+
+##### Closure 验证
+- Audit blocker preparation 全部完成（Phase 6.10–6.13）
+- Implementation 仍 blocked（无 DB 连接、无 SQL 执行、无 fs 写）
+- Disabled repository/adapter/migration 全部返回 blocked/no-op
+- 无 forbidden import / fetch / secret / signing
+- readiness 仍 false
+
+##### 下一步
+> **Phase 6.15 必须由人工选择：继续 audit DB dry-run 或切换到其他 blocker。**
+
+#### Phase 6.15+ — 后续阶段（BLOCKED — 等待明确批准）
 
 ---
 
