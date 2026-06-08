@@ -132,7 +132,7 @@ describe("Safety — No Mainnet Capability", () => {
   const known = ["testnetEnvConfig", "testnetEnvTypes", "testnetAdapterTypes",
     "testnetRouteTypes", "testnetRouteSecurityGuard", "sandboxSafetyGate",
     "blockedResponse", "executionQueueTypes", "testnetSecretPolicy",
-    "binanceTestnetAdapterSkeleton", "goNoGoReview"];
+    "binanceTestnetAdapterSkeleton", "goNoGoReview", "noGoRemediation"];
 
   // Check all files for mainnet in run code (not comments)
   for (const f of allFiles) {

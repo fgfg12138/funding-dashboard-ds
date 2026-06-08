@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.8 已完成。Phase 6.9 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.9 已完成。Phase 6.10 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1240,10 +1240,42 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ Secret 解密
 - ✗ 签名
 - ✗ middleware 修改
+- ✗ 真实实现
 
-#### Phase 6.9 — NO-GO Remediation Plan（BLOCKED — 等待明确批准）
+#### Phase 6.9 — NO-GO Remediation Plan（✅ 已完成 — Plan Only）
 
-> **⚠ Phase 6.9 仅限于 NO-GO remediation plan，不允许真实请求、签名、Secret 解密。**
+##### 包含
+- `docs/PHASE_6_9_NO_GO_REMEDIATION_PLAN.md` — 4.3 KB  remediation plan 文档
+- `lib/liveAdapters/noGoRemediationTypes.ts` — remediation 类型
+- `lib/liveAdapters/noGoRemediationPlan.ts` — 11 项 remediation roadmap
+- `lib/liveAdapters/noGoRemediationPlan.test.ts` — 57 个测试
+
+##### 结论
+| 指标 | 值 |
+|------|-----|
+| Remediation Items | 11 |
+| 🔴 Critical | 5 |
+| 🟡 High | 4 |
+| 🔵 Medium | 2 |
+| Decision | ❌ NO-GO |
+| Ready After Plan | false |
+
+##### 建议实施顺序
+1. Secret Retrieval (无依赖) → Permission Verification + Signing
+2. Middleware Allowlist (无依赖，可并行)
+3. Real Binance Adapter (依赖上述全部)
+4. Persistent Audit + Kill Switch + Ops Approval (可并行)
+5. Rate Limit + Idempotency + Rollback (依赖 Adapter)
+
+##### 不包含
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.10+ — 后续阶段（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 6.10 只能选择单个 blocker 开始 design/implementation preparation。**
 
 ---
 
