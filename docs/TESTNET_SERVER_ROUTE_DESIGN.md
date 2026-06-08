@@ -478,7 +478,27 @@
 - 响应体新增 `secretPolicy` 字段
 - 绝不解密/签名
 
-### Phase 5.19+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.19 ✅ — Testnet Permission Check Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetPermissionTypes.ts` | 权限检查类型 |
+| `lib/liveAdapters/testnetPermissionCheck.ts` | 权限检查纯函数 |
+| `lib/liveAdapters/testnetPermissionCheck.test.ts` | 13 个测试 |
+
+#### 规则
+- `secretPolicy.allowedToRequestSecret !== true` → blocked
+- 默认 `canRead=false`, `canTrade=false`, `canWithdraw=false`, `ipWhitelistPresent=false`
+- `canWithdraw=true` → 始终 blocked
+- `ipWhitelistPresent=false` → 始终 blocked
+- Phase 5.19: 始终 `PHASE_5_19_PERMISSION_CHECK_DISABLED`
+
+#### 集成
+- `blockedResponse.ts` 调用 `evaluateTestnetPermissionCheck`
+- 响应体新增 `permission` 字段
+
+### Phase 5.20+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

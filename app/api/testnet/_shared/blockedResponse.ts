@@ -12,6 +12,7 @@ import { checkRateLimit, incrementRateLimit } from "@/lib/liveAdapters/testnetRa
 import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapters/testnetAuditStore";
 import { parseTestnetEnvConfig, validateTestnetEnvConfig } from "@/lib/liveAdapters/testnetEnvConfig";
 import { evaluateTestnetSecretAccessPolicy } from "@/lib/liveAdapters/testnetSecretPolicy";
+import { evaluateTestnetPermissionCheck } from "@/lib/liveAdapters/testnetPermissionCheck";
 import type {
   TestnetRouteName,
   TestnetRouteSecurityChecklist,
@@ -225,6 +226,14 @@ export function buildGuardedBlockedResponseWithRateLimit(
     phase: "5.18-policy-only",
   });
 
+  // Evaluate permission check
+  const permissionCheck = evaluateTestnetPermissionCheck({
+    exchangeId: exch,
+    routeName,
+    secretPolicyResult: secretPolicy,
+    phase: "5.19-permission-skeleton",
+  });
+
   // Check + increment rate limits for all 3 scopes
   const rateLimitInputs: TestnetRateLimitInput[] = [
     { scope: "exchange", routeName, exchangeId: exch },
@@ -334,6 +343,14 @@ export function buildGuardedBlockedResponseWithRateLimit(
         severity: secretPolicy.severity,
         reasonCodes: secretPolicy.reasonCodes,
         source: secretPolicy.source,
+      },
+      permission: {
+        allowed: permissionCheck.allowed,
+        canRead: permissionCheck.canRead,
+        canTrade: permissionCheck.canTrade,
+        canWithdraw: permissionCheck.canWithdraw,
+        ipWhitelistPresent: permissionCheck.ipWhitelistPresent,
+        source: permissionCheck.source,
       },
       rateLimit: rateLimitMeta,
       audit: { requestId },

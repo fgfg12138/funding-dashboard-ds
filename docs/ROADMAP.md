@@ -700,13 +700,41 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 - ✗ 真实 testnet 请求
 - ✗ middleware 修改
 
-### Phase 5.19+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.19 — Testnet Permission Check Skeleton（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/testnetPermissionTypes.ts` — 权限检查类型
+- `lib/liveAdapters/testnetPermissionCheck.ts` — 权限检查纯函数
+- `lib/liveAdapters/testnetPermissionCheck.test.ts` — 13 个测试
+- `app/api/testnet/_shared/blockedResponse.ts` — 集成 permission 到响应体
+
+#### PermissionCheck 规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | `secretPolicy.allowedToRequestSecret !== true` | ❌ blocked |
+| 2 | 默认 `canRead=false`, `canTrade=false` | ❌ disabled |
+| 3 | `canWithdraw=true` | ❌ 始终 blocked |
+| 4 | `ipWhitelistPresent=false` | ❌ 始终 blocked |
+| 5 | Phase 5.19 | ❌ `PHASE_5_19_PERMISSION_CHECK_DISABLED` |
+
+- `source` 始终 `testnet-permission-skeleton`
+- 调用 `evaluateTestnetPermissionCheck`，响应体新增 `permission` 字段
+- 不调用 apiKeyStore / decryptSecret
+
+#### 不包含
+- ✗ 真实 API Key 权限检测
+- ✗ Secret 读取/解密
+- ✗ 签名
+- ✗ 真实 testnet 请求
+- ✗ middleware 修改
+
+### Phase 5.20+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.18 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration + Secret Policy 链路完整
+- ✅ Phase 5.0–5.19 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration + Secret Policy + Permission Check 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

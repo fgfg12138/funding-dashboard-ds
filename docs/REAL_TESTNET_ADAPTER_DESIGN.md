@@ -809,3 +809,42 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 27. Phase 5.19 — Testnet Permission Check Skeleton（已完成）
+
+> **⚠ 权限检查 skeleton 不连接交易所，不读取 API Key，不解密 Secret。**
+
+### 27.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetPermissionTypes.ts` | 权限检查类型 |
+| `lib/liveAdapters/testnetPermissionCheck.ts` | 权限检查纯函数 |
+| `lib/liveAdapters/testnetPermissionCheck.test.ts` | 13 个测试 |
+
+### 27.2 规则
+
+- `secretPolicy.allowedToRequestSecret !== true` → blocked
+- 默认所有权限 false：`canRead=false`, `canTrade=false`, `canWithdraw=false`, `ipWhitelistPresent=false`
+- `canWithdraw=true` → 始终 blocked
+- `ipWhitelistPresent=false` → 始终 blocked
+- Phase 5.19: 始终 `PHASE_5_19_PERMISSION_CHECK_DISABLED`
+
+### 27.3 集成
+
+- `blockedResponse.ts` 调用 `evaluateTestnetPermissionCheck`
+- 响应体新增 `permission` 字段：`{ allowed, canRead, canTrade, canWithdraw, ipWhitelistPresent, source }`
+
+### 27.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| 权限类型定义 | ✅ |
+| 权限检查纯函数 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实 API Key 检测 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
