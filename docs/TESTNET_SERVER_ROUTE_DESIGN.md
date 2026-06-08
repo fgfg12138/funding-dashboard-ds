@@ -336,7 +336,27 @@
 - 所有 route 仍返回 403 blocked
 - 无 Secret 解密、无签名、无网络请求
 
-### Phase 5.12+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.12 ✅ — Testnet Idempotency Store Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetIdempotencyTypes.ts` | 幂等记录类型 |
+| `lib/liveAdapters/testnetIdempotencyStore.ts` | In-memory 幂等存储 |
+| `lib/liveAdapters/testnetIdempotencyStore.test.ts` | 22 个测试 |
+
+#### Store 方法
+- `createIdempotencyRecord` — 创建记录，重复 key+route 返回 duplicate
+- `findIdempotencyRecord` — 按 key+route 查找有效记录
+- `markDuplicateBlocked` / `expireIdempotencyRecord` — 状态变更
+- `buildRequestHash` — 确定性 hash（非 crypto）
+- 所有记录 `source: "testnet-route-skeleton"`
+
+#### 集成
+- `buildGuardedBlockedResponseWithIdempotency` 调用 store 但仍返回 403
+- 默认 idempotencyKey: `skeleton-disabled`
+
+### Phase 5.13+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

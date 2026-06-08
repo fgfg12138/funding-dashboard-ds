@@ -476,3 +476,56 @@ const ALLOWED_TESTNET_PREFIXES = [
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 20. Phase 5.12 — Testnet Idempotency Store Skeleton（已完成）
+
+> **⚠ 幂等层 skeleton 不存储真实 Secret 或订单数据。**
+> **不解密 Secret、不签名、不发网络请求。**
+
+### 20.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetIdempotencyTypes.ts` | 幂等记录类型 |
+| `lib/liveAdapters/testnetIdempotencyStore.ts` | In-memory 幂等存储 |
+| `lib/liveAdapters/testnetIdempotencyStore.test.ts` | 22 个测试 |
+
+### 20.2 Store 方法
+
+| 方法 | 说明 |
+|------|------|
+| `createIdempotencyRecord(input)` | 创建记录；重复 key+route 返回 isDuplicate=true |
+| `findIdempotencyRecord(key, route)` | 按 key+route 查找有效记录 |
+| `markDuplicateBlocked(id)` | 标记为 `duplicate-blocked` |
+| `expireIdempotencyRecord(id)` | 标记为 `expired` |
+| `listIdempotencyRecords()` | 列出所有记录（最新优先） |
+| `clearIdempotencyRecords()` | 清空所有记录 |
+| `buildRequestHash(fields)` | 确定性整数 hash（`sk-hash-` 前缀） |
+
+### 20.3 IdempotencyRecord
+
+| 字段 | 值 |
+|------|-----|
+| `status` | `recorded-blocked` / `duplicate-blocked` / `expired` |
+| `source` | 始终 `testnet-route-skeleton` |
+| `responseSnapshot` | 仅 blocked response（无 Secret、无完整订单） |
+
+### 20.4 集成
+
+- `blockedResponse.ts` 新增 `buildGuardedBlockedResponseWithIdempotency`
+- 默认 idempotencyKey: `skeleton-disabled`
+- 调用 store 但仍返回 403
+
+### 20.5 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Idempotency 类型定义 | ✅ |
+| In-memory store 实现 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

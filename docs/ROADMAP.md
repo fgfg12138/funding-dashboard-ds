@@ -462,13 +462,56 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 真实下单
 - ✗ middleware 白名单修改
 
-### Phase 5.12+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.12 — Testnet Idempotency Store Skeleton（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/testnetIdempotencyTypes.ts` — 幂等记录类型
+- `lib/liveAdapters/testnetIdempotencyStore.ts` — In-memory 幂等存储（SSR-safe）
+- `lib/liveAdapters/testnetIdempotencyStore.test.ts` — 22 个测试
+- `app/api/testnet/_shared/blockedResponse.ts` — 新增 `buildGuardedBlockedResponseWithIdempotency`
+
+#### IdempotencyRecord 结构
+| 字段 | 说明 |
+|------|------|
+| `idempotencyKey` | 客户端幂等 Key |
+| `clientOrderId` | 客户端订单 ID |
+| `routeName` | 路由名称 |
+| `requestHash` | 确定性 hash（非 crypto） |
+| `responseSnapshot` | blocked response 快照 |
+| `status` | `recorded-blocked` / `duplicate-blocked` / `expired` |
+| `source` | 始终 `testnet-route-skeleton` |
+
+#### Store 方法
+| 方法 | 说明 |
+|------|------|
+| `createIdempotencyRecord(input)` | 创建记录；重复 key+route 返回 duplicate |
+| `findIdempotencyRecord(key, route)` | 查找有效记录 |
+| `markDuplicateBlocked(id)` | 标记为重复 |
+| `expireIdempotencyRecord(id)` | 标记为过期 |
+| `listIdempotencyRecords()` | 列出所有记录 |
+| `clearIdempotencyRecords()` | 清空记录 |
+| `buildRequestHash(fields)` | 确定性 hash（`sk-hash-` 前缀） |
+
+#### 集成
+- `buildGuardedBlockedResponseWithIdempotency` 调用 store 但仍返回 403
+- 默认 idempotencyKey 为 `skeleton-disabled`
+- 不解析 body Secret
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+- ✗ crypto hash（使用简单整数 hash）
+
+### Phase 5.13+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.11 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration 链路完整
+- ✅ Phase 5.0–5.12 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
