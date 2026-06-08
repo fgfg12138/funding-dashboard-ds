@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.12 已完成。Phase 6.13 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.13 已完成。Phase 6.14 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1353,7 +1353,31 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 真实 testnet 请求
 - ✗ 其他 blocker
 
-#### Phase 6.13+ — 后续阶段（BLOCKED — 等待明确批准）
+#### Phase 6.13 — Persistent Audit Migration Dry-Run Planner（✅ 已完成 — Dry-Run Only）
+
+##### 包含
+- `docs/PERSISTENT_AUDIT_MIGRATION_DRY_RUN_PLANNER.md` — 2.4 KB
+- `lib/audit/persistentAuditMigrationPlannerTypes.ts` — 规划器类型
+- `lib/audit/persistentAuditMigrationPlanner.ts` — 3 个纯函数
+- `lib/audit/persistentAuditMigrationPlanner.test.ts` — 29 个测试
+
+##### Dry-Run 行为
+| 规则 | 结果 |
+|------|------|
+| `allowExecution=true` | ❌ valid=false |
+| 目标非 sqlite | ❌ valid=false |
+| targetVersion ≤ currentVersion | ❌ valid=false |
+| 有效输入 | ✅ planned-only steps |
+| `executable` | 始终 false |
+
+##### 不包含
+- ✗ SQL 执行
+- ✗ 数据库连接
+- ✗ 文件写入 (fs)
+- ✗ 真实 testnet 请求
+- ✗ 其他 blocker
+
+#### Phase 6.14+ — 后续阶段（BLOCKED — 等待明确批准）
 
 ---
 
