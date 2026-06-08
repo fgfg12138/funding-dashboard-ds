@@ -40,10 +40,10 @@ describe("Phase 5.9 — Route Files Exist", () => {
 
 describe("Phase 5.9 — Route Responses Are Blocked", () => {
   for (const route of ROUTES) {
-    it(`${route} contains blocked/disabled response`, () => {
+    it(`${route} returns blocked/disabled response (via shared helper)`, () => {
       const content = read(route);
       expect(content).toContain("403");
-      expect(content).toContain("skeleton only");
+      expect(content).toContain("_shared/blockedResponse");
     });
   }
 });

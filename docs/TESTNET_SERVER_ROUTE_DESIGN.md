@@ -308,7 +308,35 @@
 #### 集成
 - `POST /api/testnet/orders/preview-submit` 调用 guard 但仍返回 403
 
-### Phase 5.11+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.11 ✅ — Testnet Route Guard Integration（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `app/api/testnet/_shared/blockedResponse.ts` | 共享 helper（3 个函数） |
+| `tests/phase5TestnetRouteGuardIntegration.test.ts` | 集成测试 |
+
+#### Shared Helper
+| 函数 | 说明 |
+|------|------|
+| `buildDefaultSkeletonChecklist()` | 返回全部 false 的 checklist |
+| `buildBlockedTestnetResponse(routeName, exchangeId?)` | 简单 403 阻塞响应 |
+| `buildGuardedBlockedResponse(routeName, exchangeId?)` | 调用 guard + 返回 403 |
+
+#### 集成效果
+| Route | 方法 | 行为 |
+|-------|------|------|
+| `/api/testnet/orders/preview-submit` | POST | 调用 guard → 403 |
+| `/api/testnet/orders/cancel` | POST | 调用 guard → 403 |
+| `/api/testnet/orders/[id]` | GET | 调用 guard → 403 |
+| `/api/testnet/account/snapshot` | GET | 调用 guard → 403 |
+
+#### 当前状态
+- 所有 route 统一 guard 调用
+- 所有 route 仍返回 403 blocked
+- 无 Secret 解密、无签名、无网络请求
+
+### Phase 5.12+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

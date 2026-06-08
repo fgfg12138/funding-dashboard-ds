@@ -1,20 +1,12 @@
 /**
  * GET /api/testnet/account/snapshot — Skeleton Only
  *
- * Phase 5.9: Returns blocked. No real testnet interaction.
+ * Phase 5.11: Uses shared blocked response helper. Returns 403 blocked.
+ * No real testnet interaction, no secret decryption, no signing.
  */
 
-import { NextResponse } from "next/server";
-
-const BLOCKED_RESPONSE = {
-  success: false,
-  error: {
-    code: "exchange-env-invalid",
-    message: "Testnet route skeleton only — no network request, no order placement",
-  },
-  auditId: `skeleton-${Date.now()}`,
-};
+import { buildGuardedBlockedResponse } from "../../_shared/blockedResponse";
 
 export async function GET() {
-  return NextResponse.json(BLOCKED_RESPONSE, { status: 403 });
+  return buildGuardedBlockedResponse("account-snapshot", "binance");
 }

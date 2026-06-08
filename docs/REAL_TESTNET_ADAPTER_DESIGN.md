@@ -433,3 +433,46 @@ const ALLOWED_TESTNET_PREFIXES = [
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 19. Phase 5.11 — Testnet Route Guard Integration（已完成）
+
+> **⚠ 所有 route 统一 guard 调用，但仍返回 403 blocked。**
+> **不解密 Secret、不签名、不发网络请求。**
+
+### 19.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `app/api/testnet/_shared/blockedResponse.ts` | 共享 blocked response helper |
+| `tests/phase5TestnetRouteGuardIntegration.test.ts` | 集成测试 |
+
+### 19.2 Shared Helper 函数
+
+| 函数 | 说明 |
+|------|------|
+| `buildDefaultSkeletonChecklist()` | 返回全部 false 的 TestnetRouteSecurityChecklist |
+| `buildBlockedTestnetResponse(routeName, exchangeId?)` | 简单 403 阻塞（不调用 guard） |
+| `buildGuardedBlockedResponse(routeName, exchangeId?)` | 调用 guard + 返回 403 |
+
+### 19.3 统一集成
+
+| Route | 方法 | 实现 |
+|-------|------|------|
+| `/api/testnet/orders/preview-submit` | POST | `buildGuardedBlockedResponse("orders-preview-submit")` |
+| `/api/testnet/orders/cancel` | POST | `buildGuardedBlockedResponse("orders-cancel")` |
+| `/api/testnet/orders/[id]` | GET | `buildGuardedBlockedResponse("orders-status")` |
+| `/api/testnet/account/snapshot` | GET | `buildGuardedBlockedResponse("account-snapshot")` |
+
+### 19.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Shared helper 实现 | ✅ |
+| 所有 route 统一 guard | ✅ |
+| 所有 route 返回 403 | ✅ |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

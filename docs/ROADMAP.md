@@ -437,13 +437,38 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 真实下单
 - ✗ middleware 白名单修改
 
-### Phase 5.11+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.11 — Testnet Route Guard Integration（✅ 已完成）
+
+#### 包含
+- `app/api/testnet/_shared/blockedResponse.ts` — 共享 helper（3 个函数）
+- 所有 4 个 route 统一使用 `buildGuardedBlockedResponse`
+
+#### Shared Helper
+| 函数 | 说明 |
+|------|------|
+| `buildDefaultSkeletonChecklist()` | 返回全部 false 的 checklist |
+| `buildBlockedTestnetResponse(routeName, exchangeId?)` | 简单 403 阻塞响应 |
+| `buildGuardedBlockedResponse(routeName, exchangeId?)` | 调用 guard + 返回 403 |
+
+所有 route 统一：
+- 调用 `buildGuardedBlockedResponse(routeName, "binance")`
+- 仍返回 403
+- 响应体包含 `success: false` + `guard` 字段（allowed, reasonCodes, source）
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+
+### Phase 5.12+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.10 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard 链路完整
+- ✅ Phase 5.0–5.11 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
