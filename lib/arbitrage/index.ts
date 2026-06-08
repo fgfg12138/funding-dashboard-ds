@@ -1,0 +1,39 @@
+/**
+ * Arbitrage — Barrel export
+ *
+ * Re-exports all types and functions from the arbitrage domain
+ * (Alpha A3 + A4).
+ */
+
+// Position Model (Alpha A3)
+export type {
+  ArbitrageLeg,
+  ArbitragePosition,
+  ArbitragePositionStatus,
+  ClosePositionInput,
+  CreatePositionInput,
+} from "./arbitragePositionTypes";
+
+export {
+  calculatePositionDelta,
+  calculatePositionPnl,
+  closeArbitragePosition,
+  createArbitragePosition,
+  updateArbitragePosition,
+} from "./arbitragePositionEngine";
+
+// Funding Accrual (Alpha A4)
+export type {
+  FundingAccrualEvent,
+  FundingAccrualInput,
+  FundingAccrualResult,
+} from "./fundingAccrualTypes";
+
+export {
+  DEFAULT_FUNDING_INTERVAL_HOURS,
+  accrueFunding,
+  accrueFundingBatch,
+  calculateFundingAmount,
+  getNextFundingSettlementTime,
+  isFundingSettlementDue,
+} from "./fundingAccrualEngine";
