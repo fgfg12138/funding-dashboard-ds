@@ -93,3 +93,16 @@ export {
   calculatePortfolioSummary,
   calculatePositionContribution,
 } from "./portfolioEngine";
+
+// Paper Trader (Alpha A8)
+export type {
+  PaperTraderConfig,
+  PaperTraderOpportunity,
+  PaperTraderState,
+  PaperTraderStepResult,
+} from "./paperTraderTypes";
+
+export {
+  createPaperPositionFromAllocation,
+  runPaperTraderStep,
+} from "./paperTraderEngine";
