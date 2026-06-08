@@ -758,13 +758,45 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 - ✗ 签名
 - ✗ middleware 修改
 
-### Phase 5.21+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.21 — Testnet Preflight Skeleton Closure（✅ 已完成）
 
-> **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
+#### 包含
+- `docs/PHASE_5_TESTNET_PREFLIGHT_CLOSURE.md` — 收口验收文档
+- `tests/phase5TestnetPreflightClosure.test.ts` — 75 个边界测试
+
+#### Preflight 链路
+```
+request → env → guard → secretPolicy → permissionCheck → validation → idempotency → rateLimit → audit → 403
+```
+
+#### 响应体包含 9 个字段
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `env` | object | 环境配置状态 |
+| `guard` | object | 安全检查结果 |
+| `secretPolicy` | object | Secret 访问策略 |
+| `permission` | object | 权限检查结果 |
+| `validation` | object | 请求参数校验 |
+| `idempotency` | object | 幂等记录 |
+| `rateLimit` | array | 限流计数 |
+| `audit` | object | 审计事件 |
+| `auditId` | string | 审计 ID |
+
+#### 不包含
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密/读取
+- ✗ 签名
+- ✗ fetch/axios
+- ✗ middleware 修改
+
+### Phase 5.22 — 代码审查修复（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 5.22 仅限于代码审查修复，不允许新增功能。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
+> **通过审查后方可进入 Phase 5.23+ 真实 testnet 集成。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.20 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration + Secret Policy + Permission Check + Request Validation 链路完整
+- ✅ Phase 5.0–5.21 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration + Secret Policy + Permission Check + Request Validation + Preflight Closure 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

@@ -519,11 +519,23 @@
 - `blockedResponse.ts` 调用 `evaluateTestnetRequestValidation`
 - 响应体新增 `validation` 字段
 
-### Phase 5.21+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.21 ✅ — Testnet Preflight Skeleton Closure（已完成）
 
-- API Key 解密（server-side only）
-- 订单签名（server-side only）
-- 真实 testnet 网络请求
-- 完整 audit
-- Risk Gate 真实评估
-- Reconciliation 定时任务
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `docs/PHASE_5_TESTNET_PREFLIGHT_CLOSURE.md` | 收口验收文档 |
+| `tests/phase5TestnetPreflightClosure.test.ts` | 75 个边界测试 |
+
+#### Preflight 链路
+```
+request → env → guard → secretPolicy → permissionCheck → validation → idempotency → rateLimit → audit → 403
+```
+
+#### 响应体包含 9 个字段
+`env`, `guard`, `secretPolicy`, `permission`, `validation`, `idempotency`, `rateLimit`, `audit`, `auditId`
+
+### Phase 5.22 — 代码审查修复（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 5.22 仅限于代码审查修复，不允许新增功能。**
+> **仍不允许真实网络请求、签名、Secret 解密。**

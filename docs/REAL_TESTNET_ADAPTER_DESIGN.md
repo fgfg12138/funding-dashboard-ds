@@ -895,3 +895,46 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 29. Phase 5.21 — Testnet Preflight Skeleton Closure（已完成）
+
+> **⚠ 收口验收文档确认所有 preflight 模块已完成。**
+> **所有 route 仍返回 403 blocked。无真实请求、无 Secret、无签名。**
+
+### 29.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/PHASE_5_TESTNET_PREFLIGHT_CLOSURE.md` | 收口验收文档 |
+| `tests/phase5TestnetPreflightClosure.test.ts` | 75 个边界测试 |
+
+### 29.2 Preflight 链路
+
+```
+request → env → guard → secretPolicy → permissionCheck → validation → idempotency → rateLimit → audit → 403
+```
+
+### 29.3 边界证明
+
+| 边界 | 状态 | 证据 |
+|------|------|------|
+| No-Real-Testnet | ✅ | 所有 route 返回 403，无 fetch/axios |
+| No-Secret-Access | ✅ | 不调用 apiKeyStore |
+| No-Secret-Decryption | ✅ | 无 decryptSecret/importMasterKey |
+| No-Signing | ✅ | 无 createHmac/crypto.subtle.sign |
+| No-Fetch | ✅ | 无 fetch( |
+| No-Middleware-Change | ✅ | middleware.ts 不含 /api/testnet |
+
+### 29.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Closure 文档 | ✅ |
+| 边界测试 | ✅（75 个） |
+| 所有 route 返回 403 | ✅ |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
