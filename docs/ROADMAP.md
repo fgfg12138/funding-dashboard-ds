@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.11 已完成。Phase 6.12 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.12 已完成。Phase 6.13 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1327,7 +1327,33 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ middleware 修改
 - ✗ 处理其他 blocker
 
-#### Phase 6.12+ — 后续阶段（BLOCKED — 等待明确批准）
+#### Phase 6.12 — Persistent Audit Disabled SQLite Adapter（✅ 已完成 — Disabled Skeleton）
+
+##### 包含
+- `docs/PERSISTENT_AUDIT_SQLITE_ADAPTER_DISABLED.md` — 1.9 KB
+- `lib/audit/persistentAuditSqliteAdapterTypes.ts` — 适配器类型
+- `lib/audit/persistentAuditSqliteAdapter.ts` — Disabled 骨架
+- `lib/audit/persistentAuditSqliteAdapter.test.ts` — 26 个测试
+
+##### Disabled Adapter 行为
+| 方法 | 返回 |
+|------|------|
+| `getStatus()` | mode=disabled, connected=false |
+| `connect()` | `{ success: false, error: "sqlite-adapter-disabled" }` |
+| `runMigration()` | `{ success: false }` |
+| `appendEvent()` | `{ success: false }` |
+| `listEvents()` | `[]` |
+| `verifyIntegrity()` | `{ implemented: false }` |
+
+##### 不包含
+- ✗ 数据库连接 (sqlite/better-sqlite3)
+- ✗ ORM 导入 (prisma)
+- ✗ 文件写入 (fs)
+- ✗ SQL 执行
+- ✗ 真实 testnet 请求
+- ✗ 其他 blocker
+
+#### Phase 6.13+ — 后续阶段（BLOCKED — 等待明确批准）
 
 ---
 
