@@ -37,3 +37,23 @@ export {
   getNextFundingSettlementTime,
   isFundingSettlementDue,
 } from "./fundingAccrualEngine";
+
+// Exit Engine (Alpha A5)
+export type {
+  ExitDecision,
+  ExitDecisionMetrics,
+  ExitEngineConfig,
+  ExitMarketContext,
+  ExitReason,
+  ExitSeverity,
+} from "./exitEngineTypes";
+
+export {
+  evaluateDeltaExit,
+  evaluateExit,
+  evaluateFundingDecline,
+  evaluateHoldingTimeExit,
+  evaluateNetApyExit,
+  evaluateStopLoss,
+  evaluateTakeProfit,
+} from "./exitEngine";
