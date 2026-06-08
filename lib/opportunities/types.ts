@@ -32,7 +32,8 @@ export type UnifiedOpportunitySortBy =
   | "volume24h"
   | "openInterestUsd"
   | "nextFundingTime"
-  | "exchangeCoverage";
+  | "exchangeCoverage"
+  | "expectedNetApy";
 
 export type UnifiedOpportunityFilters = {
   search?: string;

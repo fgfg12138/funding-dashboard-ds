@@ -1,5 +1,5 @@
 /**
- * Opportunity Ranking Types — Alpha Phase A1
+ * Opportunity Ranking Types — Alpha Phase A1 / A2
  *
  * Defines the ranking result for unified arbitrage opportunities.
  * Pure types — no logic.
@@ -35,4 +35,24 @@ export type OpportunityRankingResult = {
 
   /** Tier derived from totalScore. */
   rankingTier: OpportunityRankingTier;
+
+  // ─── Alpha A2: Net Profit (optional) ──────────────────
+
+  /** Expected net APY after deducting all costs (percent). */
+  expectedNetApy?: number;
+
+  /** Annual net profit in USD. */
+  netProfitUsd?: number;
+
+  /** Trading fee cost in percentage points. */
+  feeCost?: number;
+
+  /** Slippage cost in percentage points. */
+  slippageCost?: number;
+
+  /** Borrow cost in percentage points. */
+  borrowCost?: number;
+
+  /** Capital cost in percentage points. */
+  capitalCost?: number;
 };

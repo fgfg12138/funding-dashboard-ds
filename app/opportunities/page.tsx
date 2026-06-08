@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dashboard";
 import { calculateOpportunityRanking } from "@/lib/opportunityRanking/opportunityRankingEngine";
 import type { OpportunityRankingTier } from "@/lib/opportunityRanking/opportunityRankingTypes";
+import { calculateOpportunityNetProfit } from "@/lib/opportunityRanking/netProfitEngine";
+import type { NetProfitBreakdown } from "@/lib/opportunityRanking/netProfitTypes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { formatExchangeCoverage, getExchangeCoverageTitle } from "@/lib/exchanges/exchangeCoverage";
 import type { ExchangeName } from "@/lib/exchanges/types";
@@ -60,9 +62,10 @@ const SORT_OPTIONS: Array<{ label: string; value: UnifiedOpportunitySortBy }> = 
   { label: "成交量", value: "volume24h" },
   { label: "持仓量", value: "openInterestUsd" },
   { label: "下次资金费率", value: "nextFundingTime" },
-  { label: "覆盖交易所", value: "exchangeCoverage" }
+  { label: "覆盖交易所", value: "exchangeCoverage" },
+  { label: "净年化", value: "expectedNetApy" }
 ];
-const OPPORTUNITY_SORTS: UnifiedOpportunitySortBy[] = ["score", "annualizedRate", "estimatedCarryAnnualized", "volume24h", "openInterestUsd", "nextFundingTime", "exchangeCoverage"];
+const OPPORTUNITY_SORTS: UnifiedOpportunitySortBy[] = ["score", "annualizedRate", "estimatedCarryAnnualized", "volume24h", "openInterestUsd", "nextFundingTime", "exchangeCoverage", "expectedNetApy"];
 export default function OpportunitiesPage() {
   const [rows, setRows] = useState<UnifiedOpportunity[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -140,6 +143,16 @@ export default function OpportunitiesPage() {
     sortBy
   };
 
+  // Net profit computation for display (uses default cost parameters)
+  const netProfitMap = useMemo(() => {
+    const map = new Map<string, NetProfitBreakdown>();
+    for (const row of rows) {
+      const np = calculateOpportunityNetProfit(row);
+      map.set(row.id, np);
+    }
+    return map;
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const baseRows = filterUnifiedOpportunities(rows, filters);
     const visibleRows = quickMode === "highRisk" ? baseRows.filter(isHighRiskUnifiedOpportunity) : baseRows;
@@ -147,12 +160,13 @@ export default function OpportunitiesPage() {
       annualizedRate: (row) => row.annualizedRate,
       estimatedCarryAnnualized: (row) => row.estimatedCarryAnnualized,
       exchangeCoverage: (row) => getOpportunityExchanges(row).length,
+      expectedNetApy: (row) => netProfitMap.get(row.id)?.netApy ?? 0,
       nextFundingTime: (row) => row.nextFundingTime,
       openInterestUsd: (row) => row.openInterestUsd,
       score: (row) => row.score,
       volume24h: (row) => row.volume24h
     });
-  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder]);  const stats = useMemo(() => buildStats(rows), [rows]);
+  }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder, netProfitMap]);  const stats = useMemo(() => buildStats(rows), [rows]);
 
   // Ranking tier computation for display
   const rankedMap = useMemo(() => {
@@ -193,6 +207,7 @@ export default function OpportunitiesPage() {
           <StatCard label="推荐机会" value={stats.recommended.toLocaleString()} tone="cyan" />
           <StatCard label="最高评分" value={stats.highestScore.toLocaleString()} tone="green" />
           <StatCard label="最高年化" value={`${formatPercent(stats.highestAnnualized)}%`} tone="yellow" />
+          <StatCard label="最高净年化" value={`${formatPercent(stats.highestNetApy)}%`} tone="cyan" />
           <StatCard label="高风险" value={stats.highRisk.toLocaleString()} tone="orange" />
           <StatCard label="合约市场数" value={(meta?.fundingMarketCount ?? 0).toLocaleString()} />
           <StatCard label="现货市场数" value={(meta?.spotMarketCount ?? 0).toLocaleString()} />
@@ -295,6 +310,7 @@ export default function OpportunitiesPage() {
               <Th>方向</Th>
               <Th>交易所</Th>
               <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="annualizedRate" onSort={updateSort}>年化</SortableTh>
+              <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="expectedNetApy" onSort={updateSort}>净年化</SortableTh>
               <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="exchangeCoverage" onSort={updateSort}>覆盖交易所</SortableTh>
               <Th align="right">价差 / Basis</Th>
               <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="estimatedCarryAnnualized" onSort={updateSort}>估算Carry</SortableTh>
@@ -306,7 +322,7 @@ export default function OpportunitiesPage() {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {loading && rows.length === 0 ? (
-              <SkeletonRows colSpan={15} rowCount={5} />
+              <SkeletonRows colSpan={16} rowCount={5} />
             ) : null}
             {filteredRows.map((row) => (
               <tr className="bg-slate-950/20 hover:bg-slate-900/70" key={row.id}>
@@ -338,6 +354,11 @@ export default function OpportunitiesPage() {
                   <span className={row.annualizedRate >= 90 ? "text-orange-300" : "text-emerald-300"}>{formatPercent(row.annualizedRate)}%</span>
                 </Td>
                 <Td align="right">
+                  <span className={ (netProfitMap.get(row.id)?.netApy ?? 0) >= 0 ? "text-cyan-300" : "text-slate-500"}>
+                    {formatPercent(netProfitMap.get(row.id)?.netApy ?? 0)}%
+                  </span>
+                </Td>
+                <Td align="right">
                   <span title={getExchangeCoverageTitle(getOpportunityExchanges(row))}>{formatExchangeCoverage(getOpportunityExchanges(row))}</span>
                 </Td>
                 <Td align="right">
@@ -356,7 +377,7 @@ export default function OpportunitiesPage() {
             ))}
             {!loading && filteredRows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={15}>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={16}>
                   暂无符合条件的机会。
                 </td>
               </tr>
@@ -370,12 +391,20 @@ export default function OpportunitiesPage() {
 }
 
 function buildStats(rows: UnifiedOpportunity[]) {
+  const highestNetApy = rows.length > 0
+    ? Math.max(0, ...rows.map((row) => {
+        const np = calculateOpportunityNetProfit(row);
+        return np.netApy;
+      }))
+    : 0;
+
   return {
     total: rows.length,
     recommended: rows.filter(isRecommendedUnifiedOpportunity).length,
     highestScore: Math.max(0, ...rows.map((row) => row.score)),
     highestAnnualized: Math.max(0, ...rows.map((row) => row.annualizedRate)),
-    highRisk: rows.filter(isHighRiskUnifiedOpportunity).length
+    highRisk: rows.filter(isHighRiskUnifiedOpportunity).length,
+    highestNetApy,
   };
 }
 

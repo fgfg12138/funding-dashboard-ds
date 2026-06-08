@@ -12,6 +12,8 @@ import type {
   OpportunityRankingResult,
   OpportunityRankingTier,
 } from "./opportunityRankingTypes";
+import type { CostConfig } from "./netProfitTypes";
+import { calculateOpportunityNetProfit } from "./netProfitEngine";
 
 // ─── Weights ─────────────────────────────────────────────
 
@@ -139,10 +141,17 @@ function calcCapacityScore(opp: UnifiedOpportunity): number {
 /**
  * Compute ranking for a single opportunity.
  *
- * @param opp - A unified opportunity with score, volume, OI, risk tags.
- * @returns An OpportunityRankingResult with sub-scores, total, and tier.
+ * When a costConfig is provided, the result also includes
+ * expectedNetApy, netProfitUsd, and cost breakdown fields.
+ *
+ * @param opp        - A unified opportunity with score, volume, OI, risk tags.
+ * @param costConfig - Optional cost parameters for net profit estimation.
+ * @returns An OpportunityRankingResult with sub-scores, total, tier, and optional net profit.
  */
-export function calculateOpportunityRanking(opp: UnifiedOpportunity): OpportunityRankingResult {
+export function calculateOpportunityRanking(
+  opp: UnifiedOpportunity,
+  costConfig?: CostConfig,
+): OpportunityRankingResult {
   const fundingScore = calcFundingScore(opp);
   const liquidityScore = calcLiquidityScore(opp);
   const volumeScore = calcVolumeScore(opp);
@@ -159,7 +168,7 @@ export function calculateOpportunityRanking(opp: UnifiedOpportunity): Opportunit
 
   const clamped = Math.max(0, Math.min(100, totalScore));
 
-  return {
+  const base: OpportunityRankingResult = {
     opportunityId: opp.id,
     symbol: opp.symbol,
     fundingScore,
@@ -170,16 +179,43 @@ export function calculateOpportunityRanking(opp: UnifiedOpportunity): Opportunit
     totalScore: clamped,
     rankingTier: getTier(clamped),
   };
+
+  // Alpha A2: attach net profit breakdown when cost config is provided
+  if (costConfig) {
+    const np = calculateOpportunityNetProfit(opp, costConfig);
+    base.expectedNetApy = np.netApy;
+    base.netProfitUsd = np.netProfitUsd;
+    base.feeCost = np.feeCostPercent;
+    base.slippageCost = np.slippageCostPercent;
+    base.borrowCost = np.borrowCostPercent;
+    base.capitalCost = np.capitalCostPercent;
+  }
+
+  return base;
 }
 
 /**
- * Rank multiple opportunities, sorted by totalScore descending.
+ * Rank multiple opportunities, sorted by priority descending.
+ *
+ * When net profit data is available (costConfig provided),
+ * sorting uses expectedNetApy (higher first) instead of totalScore.
  *
  * @param opportunities - Array of unified opportunities.
+ * @param costConfig    - Optional cost parameters for net profit estimation.
  * @returns Array of ranking results sorted best-first.
  */
-export function rankOpportunities(opportunities: UnifiedOpportunity[]): OpportunityRankingResult[] {
-  return opportunities
-    .map((opp) => calculateOpportunityRanking(opp))
-    .sort((a, b) => b.totalScore - a.totalScore);
+export function rankOpportunities(
+  opportunities: UnifiedOpportunity[],
+  costConfig?: CostConfig,
+): OpportunityRankingResult[] {
+  const ranked = opportunities.map((opp) => calculateOpportunityRanking(opp, costConfig));
+
+  if (costConfig && ranked.some((r) => r.expectedNetApy !== undefined)) {
+    // Sort by expectedNetApy descending; fall back to totalScore when equal
+    ranked.sort((a, b) => (b.expectedNetApy ?? b.totalScore) - (a.expectedNetApy ?? a.totalScore));
+  } else {
+    ranked.sort((a, b) => b.totalScore - a.totalScore);
+  }
+
+  return ranked;
 }
