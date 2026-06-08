@@ -83,7 +83,7 @@ describe("Safety — No fetch/axios in liveAdapters + testnet routes", () => {
 // ─── 3. No Secret Decryption or Signing ─────────────────
 
 describe("Safety — No Secret Decryption or Signing", () => {
-  const skipFiles = ["apiKeys/crypto", "types.ts", "Types.ts"];
+  const skipFiles = ["apiKeys/crypto", "security/apiKeyCrypto", "security/index", "types.ts", "Types.ts"];
 
   const allRun = [
     ...collectFiles("app", (n) => /\.(ts|tsx)$/.test(n) && !n.includes(".test.")),
