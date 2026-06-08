@@ -119,8 +119,7 @@ Client Request
 
 ### No-Middleware-Whitelist 边界
 - `middleware.ts` allowlist 仅包含 Phase 4 路径
-- `/api/testnet` 不在 allowlist 中
-- 所有 testnet route 通过 middleware 请求不通过（但返回 403）
+- `/api/testnet` 未加入 middleware mutation allowlist；POST 类 testnet mutation 请求会被 middleware 拦截，GET 类请求即使到达 route handler 也只返回 403 blocked。
 
 ---
 

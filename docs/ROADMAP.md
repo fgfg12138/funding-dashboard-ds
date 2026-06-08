@@ -612,13 +612,45 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 - ✗ 真实下单
 - ✗ middleware 白名单修改
 
-### Phase 5.16+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.16 — Testnet Environment Config Design（✅ 已完成 — Design Only）
+
+#### 包含
+- `lib/liveAdapters/testnetEnvTypes.ts` — 环境配置类型
+- `lib/liveAdapters/testnetEnvConfig.ts` — 默认值 + 解析 + 验证纯函数
+- `lib/liveAdapters/testnetEnvConfig.test.ts` — 26 个测试
+
+#### 默认配置
+| 字段 | 默认值 |
+|------|--------|
+| `exchangeEnv` | `"disabled"` |
+| `liveTradingEnabled` | `false` |
+| `allowMainnetTrading` | `false` |
+| `testnetRoutesEnabled` | `false` |
+| `testnetOrderSubmitEnabled` | `false` |
+
+#### validate 规则
+| 条件 | 结果 |
+|------|------|
+| `allowMainnetTrading=true` | ❌ invalid |
+| `liveTradingEnabled=true` | ❌ invalid |
+| `testnetOrderSubmitEnabled=true` | ❌ invalid (Phase 5.16) |
+| `testnetRoutesEnabled=true` | ⚠️ warning（允许 skeleton 测试） |
+| 全部默认 false | ✅ valid |
+
+#### 不包含
+- ✗ Secret 读取/解密
+- ✗ 签名
+- ✗ fetch/axios
+- ✗ middleware 修改
+- ✗ route 返回 success:true
+
+### Phase 5.17+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.15 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure 链路完整
+- ✅ Phase 5.0–5.16 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

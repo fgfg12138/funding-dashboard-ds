@@ -689,3 +689,48 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 24. Phase 5.16 — Testnet Environment Config Design（已完成）
+
+> **⚠ 环境配置设计层不读取 Secret，不解密，不启用真实 testnet。**
+
+### 24.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetEnvTypes.ts` | 环境配置类型 |
+| `lib/liveAdapters/testnetEnvConfig.ts` | 默认值 + 解析 + 验证纯函数 |
+| `lib/liveAdapters/testnetEnvConfig.test.ts` | 26 个测试 |
+
+### 24.2 默认配置
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `exchangeEnv` | `"disabled"` | 运行模式 |
+| `liveTradingEnabled` | `false` | 真实交易开关 |
+| `allowMainnetTrading` | `false` | 主网交易开关 |
+| `testnetRoutesEnabled` | `false` | Testnet route 访问开关 |
+| `testnetOrderSubmitEnabled` | `false` | Testnet 下单开关 |
+
+### 24.3 validate 规则
+
+| 条件 | 结果 |
+|------|------|
+| `allowMainnetTrading=true` | ❌ invalid |
+| `liveTradingEnabled=true` | ❌ invalid |
+| `testnetOrderSubmitEnabled=true` | ❌ invalid (Phase 5.16) |
+| `testnetRoutesEnabled=true` | ⚠️ warning（允许 skeleton 测试） |
+| 全部默认 false | ✅ valid |
+
+### 24.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| 类型定义 | ✅ |
+| 解析/验证纯函数 | ✅ |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

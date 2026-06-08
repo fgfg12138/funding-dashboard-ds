@@ -196,7 +196,7 @@ describe("Closure — Docs Assertions", () => {
 
   it("declares no-middleware-whitelist", () => {
     expect(closure).toContain("No-Middleware-Whitelist");
-    expect(closure).toContain("不在 allowlist");
+    expect(closure).toContain("未加入 middleware mutation allowlist");
   });
 
   it("states routes are still blocked", () => {

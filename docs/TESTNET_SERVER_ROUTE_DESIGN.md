@@ -424,7 +424,28 @@
 - 各 Store 不存储 Secret/API Key
 - 文档声明 no-real-testnet / no-signing / no-secret-decryption
 
-### Phase 5.16+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.16 ✅ — Testnet Environment Config Design（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetEnvTypes.ts` | 环境配置类型 |
+| `lib/liveAdapters/testnetEnvConfig.ts` | 默认值 + 解析 + 验证 |
+| `lib/liveAdapters/testnetEnvConfig.test.ts` | 26 个测试 |
+
+#### 默认配置（全部 disabled）
+- `EXCHANGE_ENV="disabled"`, `LIVE_TRADING_ENABLED=false`
+- `ALLOW_MAINNET_TRADING=false`, `TESTNET_ROUTES_ENABLED=false`
+- `TESTNET_ORDER_SUBMIT_ENABLED=false`
+
+#### validate 规则
+- `allowMainnetTrading=true` → invalid
+- `liveTradingEnabled=true` → invalid
+- `testnetOrderSubmitEnabled=true` → invalid (Phase 5.16)
+- `testnetRoutesEnabled=true` → warning only
+- 纯函数，无 Secret 读取/解密/签名/网络请求
+
+### Phase 5.17+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）
