@@ -91,57 +91,72 @@ export default function ExecutionQueuePage() {
       return;
     }
 
-    const adapter = createMockSandboxTradingAdapter("Binance");
+    // Build one TradingOrderRequest per preview leg
     const preview = item.previewSnapshot;
     const confirmation = item.confirmationSnapshot;
-    const request = adapter.buildSandboxOrderRequest(preview, confirmation);
+    if (!preview || !confirmation) {
+      setSandboxMsg("❌ 缺少 Preview 或 Confirmation 数据");
+      setSandboxMsgSev("error");
+      setTimeout(() => setSandboxMsg(null), 5000);
+      return;
+    }
 
-    // Create lifecycle record
-    const lifecycle = createSandboxLifecycleRecord({
-      queueItemId: item.id,
-      confirmationId: item.confirmationId,
-      previewId: item.previewId,
-      opportunityId: item.opportunityId,
-      symbol: item.symbol,
-      exchangeId: "Binance",
-      request,
-    });
+    // Use the first leg's venue to pick an adapter (all leg requests are built below)
+    const firstVenue = preview.legs[0]?.venue ?? "Binance";
+    const adapter = createMockSandboxTradingAdapter(firstVenue);
+    const requests = adapter.buildSandboxOrderRequests(preview, confirmation);
 
-    createAuditEvent({
-      eventType: "sandbox_lifecycle_created",
-      entityType: "sandbox_lifecycle",
-      entityId: lifecycle.id,
-      symbol: item.symbol,
-      strategyName: item.strategyName,
-      severity: "info",
-      message: `Mock Sandbox lifecycle created for ${item.symbol}`,
-    });
+    // Create one lifecycle record per request leg
+    let lifecycleCount = 0;
+    for (const req of requests) {
+      const lifecycle = createSandboxLifecycleRecord({
+        queueItemId: item.id,
+        confirmationId: item.confirmationId,
+        previewId: item.previewId,
+        opportunityId: item.opportunityId,
+        symbol: item.symbol,
+        exchangeId: req.exchangeId,
+        request: req,
+      });
 
-    // Submit mock order
-    const result = await adapter.submitSandboxOrder(request);
-    appendSandboxOrderResult(lifecycle.id, result);
+      createAuditEvent({
+        eventType: "sandbox_lifecycle_created",
+        entityType: "sandbox_lifecycle",
+        entityId: lifecycle.id,
+        symbol: item.symbol,
+        strategyName: item.strategyName,
+        severity: "info",
+        message: `Mock Sandbox lifecycle created for ${item.symbol} @ ${req.exchangeId}`,
+      });
 
-    createAuditEvent({
-      eventType: "sandbox_order_mock_submitted",
-      entityType: "sandbox_lifecycle",
-      entityId: lifecycle.id,
-      symbol: item.symbol,
-      strategyName: item.strategyName,
-      severity: "info",
-      message: `Mock Sandbox order submitted: ${result.orderId}`,
-    });
+      // Submit mock order for this request
+      const result = await adapter.submitSandboxOrder(req);
+      appendSandboxOrderResult(lifecycle.id, result);
+
+      createAuditEvent({
+        eventType: "sandbox_order_mock_submitted",
+        entityType: "sandbox_lifecycle",
+        entityId: lifecycle.id,
+        symbol: item.symbol,
+        strategyName: item.strategyName,
+        severity: "info",
+        message: `Mock Sandbox order submitted: ${result.orderId}`,
+      });
+
+      lifecycleCount++;
+    }
 
     createLocalNotification({
       type: "system",
       severity: "info",
       title: "Mock Sandbox 已提交",
-      message: `${item.symbol} — 模拟沙盒订单已创建 (ID: ${lifecycle.id})`,
+      message: `${item.symbol} — ${lifecycleCount} 个模拟沙盒订单已创建`,
       entityType: "sandbox_lifecycle",
-      entityId: lifecycle.id,
+      entityId: item.id,
       symbol: item.symbol,
     });
 
-    setSandboxMsg(`✅ Mock Sandbox 生命周期记录已创建，不是真实提交 (${lifecycle.id})`);
+    setSandboxMsg(`✅ ${lifecycleCount} 个 Mock Sandbox 生命周期记录已创建，不是真实提交`);
     setSandboxMsgSev("info");
     setTimeout(() => setSandboxMsg(null), 5000);
   }, []);

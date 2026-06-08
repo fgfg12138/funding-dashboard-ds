@@ -1,0 +1,297 @@
+# Testnet Server Route Design
+
+> **Phase 5.8 — Design Only**
+> **No route implementation in Phase 5.8.**
+> **No middleware changes.**
+> **No real network requests.**
+> **No secret decryption.**
+> **No signing.**
+
+---
+
+## 1. 为什么 Testnet Route 必须 Server-Side
+
+| 原因 | 说明 |
+|------|------|
+| Secret 保护 | API Secret 只能在 server 端解密，永远不能进入 client component |
+| 签名安全 | 订单签名使用解密后的 Secret，必须在 server 完成 |
+| 审计日志 | 所有下单/撤单请求必须经过 server 端审计记录 |
+| Rate Limit | 真实限流需 server 端维护 per-user/per-exchange 计数器 |
+| 安全关卡 | Kill Switch / Risk Gate / IP 白名单检查只能在 server 端执行 |
+
+> **Client Component 永远不能拥有解密后的 API Secret。**
+> **所有 testnet 下单请求必须由 server route handler 代理。**
+
+## 2. 为什么 Secret 不能进入 Client Component
+
+1. **浏览器不安全** — JS bundle 被加载后，任何 Secret 都会被浏览器 DevTools / 扩展窃取
+2. **构建产物泄露** — Secret 如果通过 `NEXT_PUBLIC_*` 注入，会被打包到静态 JS 中
+3. **XSS 风险** — 恶意脚本读取 `localStorage` 或内存中的 Secret
+4. **签名不可审计** — 前端签名无法被 server 端 audit
+
+> **唯一正确做法：Client → Server Route (加密 Session) → Exchange Testnet API**
+
+## 3. Future Route Design
+
+以下 route 是未来实现的目标，**Phase 5.8 只设计不实现**。
+
+### 3.1 `POST /api/testnet/orders/preview-submit`
+
+预览并提交 testnet 订单。
+
+**Request:**
+
+```typescript
+{
+  exchangeId: "binance",
+  symbol: "BTCUSDT",
+  side: "Buy" | "Sell",
+  orderType: "Market" | "Limit",
+  quantity: number,
+  price?: number,
+  timeInForce?: "GTC" | "IOC" | "FOK",
+  reduceOnly?: boolean,
+  idempotencyKey: string,       // UUID, de-duplication
+  clientOrderId: string,        // User-defined order ID
+}
+```
+
+**Response (Success):**
+
+```typescript
+{
+  success: true,
+  data: {
+    orderId: string,
+    clientOrderId: string,
+    status: "new" | "partially_filled" | "filled",
+    symbol: string,
+    side: "Buy" | "Sell",
+    orderType: "Market" | "Limit",
+    price: number,
+    quantity: number,
+    filledQuantity: number,
+    submittedAt: number,
+  },
+  auditId: string,
+}
+```
+
+**Response (Blocked):**
+
+```typescript
+{
+  success: false,
+  error: {
+    code: "exchange-env-invalid" | "live-trading-enabled" | "mainnet-allowed" | ...,
+    message: string,
+  },
+  auditId: string,
+}
+```
+
+### 3.2 `POST /api/testnet/orders/cancel`
+
+取消 testnet 订单。
+
+**Request:**
+
+```typescript
+{
+  exchangeId: "binance",
+  orderId: string,
+  idempotencyKey: string,
+  clientOrderId: string,
+}
+```
+
+**Response:**
+
+```typescript
+{
+  success: true,
+  data: {
+    orderId: string,
+    cancelled: boolean,
+  },
+  auditId: string,
+}
+```
+
+### 3.3 `GET /api/testnet/orders/:id`
+
+查询 testnet 订单状态。
+
+**Request (Query):**
+
+```
+/api/testnet/orders/:id?exchangeId=binance
+```
+
+**Response:**
+
+```typescript
+{
+  success: true,
+  data: {
+    orderId: string,
+    exchangeId: string,
+    clientOrderId: string,
+    symbol: string,
+    side: "Buy" | "Sell",
+    orderType: "Market" | "Limit",
+    price: number,
+    quantity: number,
+    filledQuantity: number,
+    status: string,
+    submittedAt: number,
+    filledAt?: number,
+    cancelledAt?: number,
+    errorMessage?: string,
+  },
+  auditId: string,
+}
+```
+
+### 3.4 `GET /api/testnet/account/snapshot`
+
+查询 testnet 账户快照。
+
+**Request (Query):**
+
+```
+/api/testnet/account/snapshot?exchangeId=binance
+```
+
+**Response:**
+
+```typescript
+{
+  success: true,
+  data: {
+    exchangeId: string,
+    balances: [
+      { asset: "BTC", walletBalance: 0.1, availableBalance: 0.1 },
+    ],
+    updatedAt: number,
+  },
+  auditId: string,
+}
+```
+
+## 4. Route Handler 安全检查清单
+
+每个 route handler 必须在执行前检查以下全部条目：
+
+| # | 检查项 | 失败操作 |
+|---|--------|---------|
+| 1 | `EXCHANGE_ENV === "testnet"` | 返回 `exchange-env-invalid` |
+| 2 | `LIVE_TRADING_ENABLED === false` (或 testnet-only flag) | 返回 `live-trading-enabled` |
+| 3 | `ALLOW_MAINNET_TRADING === false` | 返回 `mainnet-allowed` |
+| 4 | Kill Switch 未触发 | 返回 `kill-switch-active` |
+| 5 | API Key 已验证存在 | 返回 `api-key-not-verified` |
+| 6 | withdraw 权限已禁用 | 返回 `withdraw-not-disabled` |
+| 7 | IP 白名单存在且非空 | 返回 `ip-whitelist-missing` |
+| 8 | Risk Gate 检查通过 | 返回 `risk-gate-blocked` |
+| 9 | 用户确认已存在 | 返回 `confirmation-missing` |
+| 10 | 队列项未过期 | 返回 `queue-expired` |
+
+> **安全检查失败时，必须记录 audit 事件 `route_request_blocked`。**
+
+## 5. Idempotency 策略
+
+| 字段 | 说明 |
+|------|------|
+| `idempotencyKey` | 客户端生成的 UUID，每个请求唯一 |
+| `clientOrderId` | 客户端定义订单 ID，对同一个订单保持不变 |
+| `dedupWindowSeconds` | 在此窗口内的重复请求返回原结果（默认 300s） |
+
+**重复请求处理流程：**
+
+```
+1. 收到请求 → 提取 idempotencyKey
+2. 查询 dedup cache (Redis / in-memory) → 是否存在此 key?
+   └─ 存在 → 返回原始 response，不提交交易所
+   └─ 不存在 → 继续处理
+3. 处理完成后 → 将 idempotencyKey + response 写入 dedup cache (TTL=dedupWindowSeconds)
+```
+
+## 6. Rate Limit 策略
+
+| 范围 | 限制 | 窗口 |
+|------|------|------|
+| Per Exchange | 按交易所限频（Binance Testnet: 10 req/s） | 1 秒 |
+| Per Route | 每个 route 独立计数器（如 /orders 30 req/min） | 1 分钟 |
+| Per Session | 每个用户 session 总限频 | 1 分钟 |
+
+**Rate Limit 超出时：**
+
+- 返回 `rate-limit-exceeded`
+- 记录 audit 事件 `route_request_blocked`
+- 在 Response Header 中携带 `Retry-After`
+
+## 7. Audit 事件
+
+| 事件类型 | 触发时机 | 包含信息 |
+|---------|---------|---------|
+| `route_request_received` | 每次请求到达 route handler | routeName, exchangeId, timestamp, requestId |
+| `route_request_blocked` | 安全检查/Rate Limit/Idempotency 拦截 | 同上 + errorCode |
+| `route_testnet_order_submitted` | 订单成功提交到交易所 testnet | 同上 + orderId |
+| `route_testnet_order_failed` | 订单提交失败或被交易所拒绝 | 同上 + errorMessage |
+
+## 8. Failure Handling
+
+| 故障模式 | 说明 | 可重试 | 需要 Reconciliation |
+|---------|------|--------|-------------------|
+| Timeout | 交易所请求超时 | ✅ | ✅ |
+| Partial Fill | 部分成交后状态不一致 | ❌ | ✅ |
+| Rejected by Exchange | 交易所明确拒绝（余额不足/参数错误） | ❌ | ❌ |
+| Inconsistent Status | 查询状态与预期不符（如 submitted 但实际不存在） | ❌ | ✅ |
+
+**Timeout 处理：**
+
+```
+1. 请求交易所超时 (5s 默认)
+2. 记录 audit: route_testnet_order_failed (timeout)
+3. 返回 503 给客户端
+4. 启动 reconciliation 流程：定时查询该订单状态
+```
+
+**Partial Fill 处理：**
+
+```
+1. 收到部分成交结果
+2. 记录 audit: route_testnet_order_submitted (partial)
+3. 返回带 filledQuantity 的 response
+4. 启动 reconciliation：确认剩余数量状态
+```
+
+## 9. Phase 5.8 禁止事项
+
+| 事项 | 说明 |
+|------|------|
+| ✗ 不新增 API route | `app/api/testnet/*` 目录不存在 |
+| ✗ 不修改 middleware | `middleware.ts` 白名单不变 |
+| ✗ 不解密 Secret | 无 `decryptSecret` / `importMasterKey` |
+| ✗ 不签名 | 无 `createHmac` / `crypto.subtle.sign` |
+| ✗ 不 fetch | 无任何 HTTP 请求实现 |
+| ✗ 不真实下单 | 无真实 exchange API 调用 |
+
+## 10. 后续阶段
+
+### Phase 5.9 — Testnet Route Handler Skeleton
+
+- 新增 `app/api/testnet/*` 目录
+- 每个 route handler 返回 disabled/blocked
+- 实现安全检查清单（但不解密/签名）
+- 实现 idempotency check skeleton
+- 实现 rate limit check skeleton
+
+### Phase 5.9+ — 真实 Testnet 集成
+
+- API Key 解密（server-side only）
+- 订单签名（server-side only）
+- 真实 testnet 网络请求
+- 完整 audit
+- Risk Gate 真实评估
+- Reconciliation 定时任务

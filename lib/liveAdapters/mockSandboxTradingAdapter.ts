@@ -7,6 +7,8 @@
  */
 
 import type { ExchangeName } from "../exchanges/types";
+import type { OrderPreview } from "../orders/orderPreviewTypes";
+import type { ConfirmationRecord } from "../orders/orderConfirmationTypes";
 import type {
   EnvironmentValidationResult,
   PermissionValidationResult,
@@ -20,6 +22,8 @@ let mockOrderCounter = 1;
 
 /**
  * Create a mock sandbox TradingAdapter for the given exchange.
+ * The exchangeId is used for single-venue adapters; for multi-leg previews
+ * call `buildSandboxOrderRequests` which assigns the correct venue per leg.
  *
  * @param exchangeId  Exchange name (e.g. "Binance").
  * @returns A TradingAdapter that returns mock sandbox results.
@@ -47,30 +51,56 @@ export function createMockSandboxTradingAdapter(exchangeId: ExchangeName): Tradi
     };
   }
 
-  function buildSandboxOrderRequest(preview?: any, confirmation?: any): TradingOrderRequest {
-    const legs = preview?.legs ?? [];
-    const totalNotional = legs.reduce((s: number, leg: any) => s + (leg.notionalUsd ?? 0), 0);
-    const firstLeg = legs[0] ?? {};
+  /**
+   * Build one TradingOrderRequest per preview leg.
+   * Each leg retains its own venue, side, marketType, and notionalUsd.
+   */
+  function buildSandboxOrderRequests(preview: OrderPreview, confirmation: ConfirmationRecord): TradingOrderRequest[] {
+    if (!preview.legs || preview.legs.length === 0) {
+      // Fallback: generate a single request from preview-level data
+      return [
+        {
+          exchangeId,
+          symbol: preview.symbol,
+          marketType: "perp",
+          intent: "open",
+          side: "buy",
+          orderType: "market",
+          quantity: 0.001,
+          notionalUsd: 1000,
+          reduceOnly: false,
+          clientOrderId: `mock-${exchangeId}-${Date.now()}`,
+          previewId: preview.id,
+          confirmationId: confirmation.id,
+        },
+      ];
+    }
 
-    return {
-      exchangeId: firstLeg.venue ?? exchangeId,
-      symbol: preview?.symbol ?? "BTC/USDT",
-      marketType: firstLeg.marketType === "perp" ? "perp" : "spot",
-      intent: legs.some((l: any) => l.side === "short") ? "open" : "open",
-      side: firstLeg.side ?? "buy",
-      orderType: firstLeg.orderType ?? "market",
-      quantity: totalNotional / (firstLeg.estimatedEntryPrice ?? 68000) || 0.001,
-      notionalUsd: totalNotional || 1000,
-      reduceOnly: false,
-      clientOrderId: `mock-${exchangeId}-${Date.now()}`,
-      previewId: preview?.id,
-      confirmationId: confirmation?.id,
-    };
+    return preview.legs.map((leg) => {
+      const quantity = leg.estimatedEntryPrice > 0
+        ? leg.notionalUsd / leg.estimatedEntryPrice
+        : 0.001;
+
+      return {
+        exchangeId: leg.venue,
+        symbol: leg.symbol,
+        marketType: leg.marketType === "perp" ? "perp" : "spot",
+        intent: "open",
+        side: leg.side,
+        orderType: leg.orderType === "limit-preview" ? "limit" : "market",
+        quantity,
+        notionalUsd: leg.notionalUsd,
+        reduceOnly: false,
+        clientOrderId: `mock-${leg.venue}-${Date.now()}`,
+        previewId: preview.id,
+        confirmationId: confirmation.id,
+      };
+    });
   }
 
   async function submitSandboxOrder(request: TradingOrderRequest): Promise<TradingOrderResult> {
     const now = Date.now();
-    const orderId = `mock-sandbox-${exchangeId}-${mockOrderCounter++}-${now}`;
+    const orderId = `mock-sandbox-${request.exchangeId}-${mockOrderCounter++}-${now}`;
 
     return {
       exchangeId: request.exchangeId,
@@ -121,7 +151,7 @@ export function createMockSandboxTradingAdapter(exchangeId: ExchangeName): Tradi
     mode,
     validateEnvironment,
     validatePermissions,
-    buildSandboxOrderRequest,
+    buildSandboxOrderRequests,
     submitSandboxOrder,
     cancelSandboxOrder,
     getSandboxOrderStatus,

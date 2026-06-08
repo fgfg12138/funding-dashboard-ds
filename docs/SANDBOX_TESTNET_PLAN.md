@@ -287,17 +287,27 @@ Sandbox Key 存储方式与 Phase 3.2 加密存储一致：
 | BC-010 | 无 Secret 解密调用 | 无调用 | ✅ |
 
 ### Phase 5.6 — 真实 Testnet 集成测试（待完成 — 阻塞于代码审查）
+...
+### Phase 5.7 — Binance Testnet Adapter Skeleton（✅ 已完成，仍为 Skeleton）
 
-| 测试编号 | 描述 | 前提 |
-|---------|------|------|
-| SI-001 | 使用 Binance Testnet 成功提交市价单 | Testnet Key 已配置 |
-| SI-002 | 使用 Binance Testnet 成功提交限价单 | Testnet Key 已配置 |
-| SI-003 | 使用 Binance Testnet 成功撤单 | 有未成交订单 |
-| SI-004 | 余额不足时下单被拒绝 | 账户余额低于所需保证金 |
-| SI-005 | Kill Switch 开启时下单被拒绝 | Kill Switch = true |
-| SI-006 | Risk Gate 不通过时下单被拒绝 | Risk Gate = blocked |
+> **⚠ Binance Testnet Adapter Skeleton 不连接真实 Binance Testnet。**
+> **所有方法返回 disabled/blocked。**
 
-### Phase 5.6+ — Mainnet 前验证
+| 测试编号 | 描述 | 预期结果 | 状态 |
+|---------|------|---------|------|
+| SK-001 | exchangeId = binance | 正确 | ✅ |
+| SK-002 | mode = design-only | 正确 | ✅ |
+| SK-003 | validateEnvironment 默认 disabled | valid=false | ✅ |
+| SK-004 | validateEnvironment testnet 通过 | valid=true | ✅ |
+| SK-005 | validateEnvironment 阻止 liveTradingEnabled | valid=false | ✅ |
+| SK-006 | validateEnvironment 阻止 allowMainnetTrading | valid=false | ✅ |
+| SK-007 | checkPermissions 返回 disabled | permission-check-disabled | ✅ |
+| SK-008 | placeTestnetOrder 返回 testnet-blocked | 拦截 | ✅ |
+| SK-009 | cancel 返回 false | false | ✅ |
+| SK-010 | getStatus 返回 testnet-unknown | unknown | ✅ |
+| SK-011 | 无 fetch/axios/HMAC/decryptSecret/SDK | 静态分析 | ✅ |
+
+### Phase 5.8+ — Mainnet 前验证
 
 | 测试编号 | 描述 |
 |---------|------|

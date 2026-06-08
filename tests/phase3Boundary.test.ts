@@ -167,7 +167,8 @@ describe("Phase 3 Boundary — Permission Verifier", () => {
 describe("Phase 3 Boundary — No Real Withdraw", () => {
   it("withdraw only appears in types/mock verifier/comments, not as executable code", () => {
     for (const { file, content } of libRunFiles) {
-      const isAllowed = file.includes("types.ts") || file.includes("permissionVerifier") || file.includes(".test.");
+      const normalizedPath = file.replace(/\\/g, "/");
+      const isAllowed = normalizedPath.includes("types.ts") || normalizedPath.includes("testnetRouteTypes") || normalizedPath.includes("permissionVerifier") || normalizedPath.includes(".test.");
       // Skip files where "withdraw" only appears in JSDoc comments
       if (content.includes("withdraw") && !isAllowed) {
         const withoutComments = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");

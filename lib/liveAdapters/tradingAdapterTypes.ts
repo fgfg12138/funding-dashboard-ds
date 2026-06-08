@@ -8,6 +8,8 @@
  */
 
 import type { ExchangeName } from "../exchanges/types";
+import type { OrderPreview } from "../orders/orderPreviewTypes";
+import type { ConfirmationRecord } from "../orders/orderConfirmationTypes";
 
 // ─── Environment ────────────────────────────────────────
 
@@ -107,8 +109,11 @@ export interface TradingAdapter {
   /** Validate API Key permissions for trading. */
   validatePermissions(): Promise<PermissionValidationResult>;
 
-  /** Build an order request from preview/confirmation data. */
-  buildSandboxOrderRequest(preview?: any, confirmation?: any): TradingOrderRequest;
+  /**
+   * Build one TradingOrderRequest per preview leg.
+   * A cross-exchange opportunity with 2 legs produces 2 requests.
+   */
+  buildSandboxOrderRequests(preview: OrderPreview, confirmation: ConfirmationRecord): TradingOrderRequest[];
 
   /** Submit an order to the sandbox/testnet exchange. */
   submitSandboxOrder(request: TradingOrderRequest): Promise<TradingOrderResult>;

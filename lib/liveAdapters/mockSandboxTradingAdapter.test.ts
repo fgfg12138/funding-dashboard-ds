@@ -9,7 +9,8 @@ beforeEach(() => {
   resetMockSandboxCounter();
 });
 
-const mockPreview: OrderPreview = {
+/** Cross-exchange preview with 2 legs on different venues. */
+const mockCrossPreview: OrderPreview = {
   id: "preview-test-1",
   mode: "preview",
   opportunityId: "opp-1",
@@ -46,7 +47,7 @@ const mockConfirmation: ConfirmationRecord = {
   riskAccepted: true,
   riskMessages: [],
   disclaimerAccepted: true,
-  previewSnapshot: mockPreview,
+  previewSnapshot: mockCrossPreview,
 };
 
 describe("mockSandboxTradingAdapter", () => {
@@ -72,20 +73,53 @@ describe("mockSandboxTradingAdapter", () => {
     expect(result.warnings.some((w) => w.includes("Mock"))).toBe(true);
   });
 
-  it("buildSandboxOrderRequest converts preview legs correctly", () => {
-    const request = adapter.buildSandboxOrderRequest(mockPreview, mockConfirmation);
-    expect(request.exchangeId).toBe("Binance");
-    expect(request.symbol).toBe("BTC/USDT");
-    expect(request.clientOrderId).toMatch(/^mock-Binance-/);
-    expect(request.notionalUsd).toBe(1000);
-    expect(request.reduceOnly).toBe(false);
-    expect(request.previewId).toBe("preview-test-1");
-    expect(request.confirmationId).toBe("cf-test-1");
+  describe("buildSandboxOrderRequests", () => {
+    it("returns one request per leg for cross-exchange preview", () => {
+      const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+      expect(requests).toHaveLength(2);
+    });
+
+    it("first leg request has Binance venue with short side", () => {
+      const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+      expect(requests[0].exchangeId).toBe("Binance");
+      expect(requests[0].side).toBe("short");
+      expect(requests[0].notionalUsd).toBe(500);
+      expect(requests[0].marketType).toBe("perp");
+    });
+
+    it("second leg request has OKX venue with long side", () => {
+      const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+      expect(requests[1].exchangeId).toBe("OKX");
+      expect(requests[1].side).toBe("long");
+      expect(requests[1].notionalUsd).toBe(500);
+    });
+
+    it("each request has previewId and confirmationId", () => {
+      const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+      for (const req of requests) {
+        expect(req.previewId).toBe("preview-test-1");
+        expect(req.confirmationId).toBe("cf-test-1");
+      }
+    });
+
+    it("no two requests share the same clientOrderId", () => {
+      const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+      const ids = requests.map((r) => r.clientOrderId);
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it("fallback generates a single request when preview has no legs", () => {
+      const leglessPreview = { ...mockCrossPreview, legs: [] };
+      const requests = adapter.buildSandboxOrderRequests(leglessPreview, mockConfirmation);
+      expect(requests).toHaveLength(1);
+      expect(requests[0].exchangeId).toBe("Binance");
+      expect(requests[0].side).toBe("buy");
+    });
   });
 
   it("submitSandboxOrder returns mock-sandbox result", async () => {
-    const request = adapter.buildSandboxOrderRequest(mockPreview, mockConfirmation);
-    const result = await adapter.submitSandboxOrder(request);
+    const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+    const result = await adapter.submitSandboxOrder(requests[0]);
     expect(result.orderId).toMatch(/^mock-sandbox-Binance-\d+/);
     expect(result.status).toBe("sandbox-submitted");
     expect(result.source).toBe("mock-sandbox");
@@ -113,12 +147,10 @@ describe("mockSandboxTradingAdapter", () => {
     expect(noKeyAdapter.exchangeId).toBe("OKX");
   });
 
-  it("creates unique order IDs", async () => {
-    const adapter2 = createMockSandboxTradingAdapter("Bybit");
-    const req1 = adapter2.buildSandboxOrderRequest(mockPreview, mockConfirmation);
-    const req2 = adapter2.buildSandboxOrderRequest(mockPreview, mockConfirmation);
-    const r1 = await adapter2.submitSandboxOrder(req1);
-    const r2 = await adapter2.submitSandboxOrder(req2);
+  it("creates unique order IDs across multiple submissions", async () => {
+    const requests = adapter.buildSandboxOrderRequests(mockCrossPreview, mockConfirmation);
+    const r1 = await adapter.submitSandboxOrder(requests[0]);
+    const r2 = await adapter.submitSandboxOrder(requests[0]);
     expect(r1.orderId).not.toBe(r2.orderId);
   });
 });
@@ -128,7 +160,6 @@ describe("mockSandboxTradingAdapter", () => {
 describe("mockSandboxTradingAdapter — static analysis", () => {
   it("implementation file does not contain fetch / axios / SDK import", () => {
     const content = readFileSync(join(__dirname, "mockSandboxTradingAdapter.ts"), "utf8");
-    // It may contain `fetch` in comments or variable names, but should not import fetch/axios/SDK
     const importLines = content.split("\n").filter((l) => l.includes("from "));
     for (const line of importLines) {
       expect(line, `Import line contains forbidden dependency: ${line.trim()}`).not.toMatch(/fetch|axios|node-fetch|cross-fetch/i);

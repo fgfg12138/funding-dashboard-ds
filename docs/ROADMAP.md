@@ -330,13 +330,68 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 任何下单功能
 - ✗ API Key 读取或解密
 
-### Phase 5.6 — Real Testnet Adapter Design（⬆ Next — 阻塞于代码审查）
+### Phase 5.6 — Real Testnet Adapter Design（✅ 已完成）
 
-> **⚠ Phase 5.6 需要先完成代码审查，审查通过后进入真实 testnet 设计。**
-> **真实 testnet 仍不能直接接主网。**
+> 新增设计文档和 TestnetAdapter 类型接口。不包含实现。
+
+### Phase 5.7 — Binance Testnet Adapter Skeleton（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/binanceTestnetAdapterSkeleton.ts` — Binance Testnet Skeleton 适配器
+- 所有方法返回 disabled/blocked，不连接 Binance
+- validateEnvironment 检查 exchangeEnv / liveTradingEnabled / allowMainnetTrading
+- checkPermissions 返回 permission-check-disabled
+- placeTestnetOrder 返回 testnet-blocked
+- 11 个单元测试全部通过
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ 任何下单功能
+- ✗ API Key 解密或签名
+- ✗ Binance SDK 引入
+
+### Phase 5.7.1 — Binance Skeleton 审查收口（✅ 已完成）
+
+#### 包含
+- `tests/phase5BinanceSkeletonBoundary.test.ts` — 新增边界测试
+- 静态分析验证：无 fetch / axios / HMAC / decryptSecret / SDK
+- Runtime 验证：placeTestnetOrder 仅返回 testnet-blocked/disabled
+- 文档更新明确 skeleton ≠ real testnet
+
+### Phase 5.8 — Testnet Server Route Design（✅ 已完成 — Design Only）
+
+#### 包含
+- `docs/TESTNET_SERVER_ROUTE_DESIGN.md` — 完整 route 设计文档（10 节）
+- `lib/liveAdapters/testnetRouteTypes.ts` — route 请求/响应/安全/幂等/限流类型
+- `tests/phase5TestnetRouteDesignBoundary.test.ts` — 30+ 边界测试
+
+#### 设计覆盖
+- POST /api/testnet/orders/preview-submit
+- POST /api/testnet/orders/cancel
+- GET  /api/testnet/orders/:id
+- GET  /api/testnet/account/snapshot
+- 安全检查清单（10 项）
+- Idempotency 策略（dedup window）
+- Rate Limit 策略（per exchange / per route / per session）
+- Audit 事件（4 种）
+- Failure Handling（timeout / partial fill / rejected / inconsistent）
+
+#### 不包含
+- ✗ 无 API route 实现
+- ✗ 无 middleware 修改
+- ✗ 无 Secret 解密
+- ✗ 无签名
+- ✗ 无 fetch
+- ✗ 无真实下单
+
+### Phase 5.9+ — 后续阶段（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 5.9 开始进入 route handler skeleton 设计。**
+> **仍不允许真实网络请求、签名、Secret 解密。**
+> **Phase 5.9 需要先通过代码审查，获得明确批准后方可开始。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.5 Mock Sandbox 链路完整
+- ✅ Phase 5.0–5.8 Mock Sandbox + Skeleton + Route Design 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
