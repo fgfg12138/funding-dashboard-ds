@@ -28,7 +28,8 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { href: "/safety", label: "安全控制" },
   { href: "/notifications-center", label: "本地通知" },
   { href: "/sandbox-lifecycle", label: "沙盒生命周期" },
-  { href: "/testnet-readiness", label: "Testnet Readiness" }
+  { href: "/testnet-readiness", label: "Testnet Readiness" },
+  { href: "/risk-center", label: "风险中心" },
 ];
 
 export function AppShell({

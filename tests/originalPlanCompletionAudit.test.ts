@@ -119,8 +119,8 @@ describe("Step 7 — /strategies", () => {
 // ─── Step 8: /risk-center ─────────────────────────────
 
 describe("Step 8 — /risk-center", () => {
-  it("app/risk-center does NOT exist (missing)", () => {
-    expect(exists("app/risk-center")).toBe(false);
+  it("app/risk-center now exists (Recovery R1)", () => {
+    expect(exists("app/risk-center/page.tsx")).toBe(true);
   });
   it("app/risk-rules exists as partial replacement", () => {
     expect(exists("app/risk-rules/page.tsx")).toBe(true);

@@ -55,7 +55,8 @@ describe("style pipeline", () => {
       "安全控制",
       "本地通知",
       "沙盒生命周期",
-      "Testnet Readiness"
+      "Testnet Readiness",
+      "风险中心"
     ]);
   });
 });
