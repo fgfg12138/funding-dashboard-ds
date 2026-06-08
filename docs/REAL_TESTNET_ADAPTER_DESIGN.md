@@ -351,13 +351,37 @@ const ALLOWED_TESTNET_PREFIXES = [
 - Audit 事件（4 种）
 - Failure Handling（timeout / partial fill / rejected / inconsistent）
 
-### 16.3 当前阶段状态
+---
+
+## 17. Phase 5.9 — Testnet Route Handler Skeleton（已完成）
+
+> **⚠ Phase 5.9 route skeleton 不连接真实 Testnet。**
+> **所有 route 返回 403 blocked。**
+
+### 17.1 新增文件
+
+| Route | 方法 | 文件 | 行为 |
+|-------|------|------|------|
+| `/api/testnet/orders/preview-submit` | POST | `app/api/testnet/orders/preview-submit/route.ts` | 返回 403 `exchange-env-invalid` |
+| `/api/testnet/orders/cancel` | POST | `app/api/testnet/orders/cancel/route.ts` | 返回 403 `exchange-env-invalid` |
+| `/api/testnet/orders/[id]` | GET | `app/api/testnet/orders/[id]/route.ts` | 返回 403 `exchange-env-invalid` |
+| `/api/testnet/account/snapshot` | GET | `app/api/testnet/account/snapshot/route.ts` | 返回 403 `exchange-env-invalid` |
+
+### 17.2 Skeleton 行为
+
+- 所有 route 返回 `success: false`, code: `exchange-env-invalid`
+- message: `"Testnet route skeleton only — no network request, no order placement"`
+- HTTP 状态码 403
+- 不调用 adapter、不解密 Secret、不签名、不 fetch、不连接交易所
+
+### 17.3 当前状态
 
 | 事项 | 状态 |
 |------|------|
-| Route 目录 `app/api/testnet/*` | ❌ 不存在 |
-| Route handler 实现 | ❌ 无 |
+| Route 目录 `app/api/testnet/*` | ✅ 存在（skeleton only） |
+| Route handler 返回 blocked | ✅ |
 | Middleware 修改 | ❌ 无 |
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | 网络请求 | ❌ 无 |
+| 真实下单 | ❌ 无 |

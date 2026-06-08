@@ -266,28 +266,30 @@
 4. 启动 reconciliation：确认剩余数量状态
 ```
 
-## 9. Phase 5.8 禁止事项
+## 9. Phase 5.8–5.9 禁止事项
 
 | 事项 | 说明 |
 |------|------|
-| ✗ 不新增 API route | `app/api/testnet/*` 目录不存在 |
 | ✗ 不修改 middleware | `middleware.ts` 白名单不变 |
 | ✗ 不解密 Secret | 无 `decryptSecret` / `importMasterKey` |
 | ✗ 不签名 | 无 `createHmac` / `crypto.subtle.sign` |
 | ✗ 不 fetch | 无任何 HTTP 请求实现 |
 | ✗ 不真实下单 | 无真实 exchange API 调用 |
 
-## 10. 后续阶段
+## 10. 当前状态
 
-### Phase 5.9 — Testnet Route Handler Skeleton
+### Phase 5.9 ✅ — Testnet Route Handler Skeleton（已完成）
 
-- 新增 `app/api/testnet/*` 目录
-- 每个 route handler 返回 disabled/blocked
-- 实现安全检查清单（但不解密/签名）
-- 实现 idempotency check skeleton
-- 实现 rate limit check skeleton
+| Route | 方法 | 状态 | 返回 |
+|-------|------|------|------|
+| `/api/testnet/orders/preview-submit` | POST | ✅ Skeleton | 403, `exchange-env-invalid` |
+| `/api/testnet/orders/cancel` | POST | ✅ Skeleton | 403, `exchange-env-invalid` |
+| `/api/testnet/orders/[id]` | GET | ✅ Skeleton | 403, `exchange-env-invalid` |
+| `/api/testnet/account/snapshot` | GET | ✅ Skeleton | 403, `exchange-env-invalid` |
 
-### Phase 5.9+ — 真实 Testnet 集成
+所有 route handler **不连接交易所、不解密 Secret、不签名、不发网络请求**。
+
+### Phase 5.10+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

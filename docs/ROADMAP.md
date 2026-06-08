@@ -384,14 +384,35 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 无 fetch
 - ✗ 无真实下单
 
-### Phase 5.9+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.9 — Testnet Route Handler Skeleton（✅ 已完成 — Skeleton Only）
 
-> **⚠ Phase 5.9 开始进入 route handler skeleton 设计。**
+#### 包含
+- `app/api/testnet/orders/preview-submit/route.ts` — POST, 返回 403 blocked
+- `app/api/testnet/orders/cancel/route.ts` — POST, 返回 403 blocked
+- `app/api/testnet/orders/[id]/route.ts` — GET, 返回 403 blocked
+- `app/api/testnet/account/snapshot/route.ts` — GET, 返回 403 blocked
+- `tests/phase5TestnetRouteHandlerSkeleton.test.ts` — 边界测试
+
+#### Skeleton 行为
+- 所有 route 返回 `success: false`, code: `exchange-env-invalid`
+- 消息: "Testnet route skeleton only — no network request, no order placement"
+- HTTP 状态码 403
+- 不调用 adapter、不解密 Secret、不签名、不 fetch、不连接交易所
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+
+### Phase 5.10+ — 后续阶段（BLOCKED — 等待明确批准）
+
+> **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
-> **Phase 5.9 需要先通过代码审查，获得明确批准后方可开始。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.8 Mock Sandbox + Skeleton + Route Design 链路完整
+- ✅ Phase 5.0–5.9 Mock Sandbox + Skeleton + Route Design + Route Handler 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

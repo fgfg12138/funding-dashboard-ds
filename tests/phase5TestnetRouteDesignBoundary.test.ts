@@ -9,7 +9,7 @@
  * - Docs state server-side only, no client secret, no route implementation
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -30,8 +30,11 @@ const typesContent = (() => {
 // ─── No Route Directory ──────────────────────────────────
 
 describe("Phase 5.8 — No API Route Implementation", () => {
-  it("app/api/testnet directory does not exist", () => {
-    expect(existsSync(join(root, "app/api/testnet"))).toBe(false);
+  it("Phase 5.8 did not add API routes — routes added in Phase 5.9 skeleton", () => {
+    // Phase 5.9 added route skeletons, but Phase 5.8 design did not
+    // This is verified by the fact that Phase 5.8 design doc says "no implementation"
+    const doc = read("docs/TESTNET_SERVER_ROUTE_DESIGN.md");
+    expect(doc).toContain("Phase 5.8 — Design Only");
   });
 
   it("middleware has not opened /api/testnet route", () => {
