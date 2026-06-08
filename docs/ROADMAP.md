@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.6 已完成。Phase 6.7 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.8 已完成。Phase 6.9 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1206,9 +1206,44 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-#### Phase 6.7 — Code Review Fixes（BLOCKED — 等待明确批准）
+#### Phase 6.7 — Code Review Fixes（✅ 已完成）
 
-> **⚠ Phase 6.7 仅限于 code review fixes，不允许真实请求、签名、Secret 解密。**
+##### 修复点（9 项）
+- KILL_SWITCH_ENABLED → KILL_SWITCH_ACTIVE 一致性修复
+- 移除 persistentAuditSchema.ts 未使用 import
+- 文档 Phase 6.8 暗示性语言移除
+- secretVault source 字段命名对齐
+- 弱断言 toBeGreaterThanOrEqual → toBe
+- Phase 6 标题和 readiness review header 修正
+
+#### Phase 6.8 — Go / No-Go Architecture Review（✅ 已完成）
+
+##### 包含
+- `docs/PHASE_6_8_GO_NO_GO_REVIEW.md` — 3.7 KB 审查文档
+- `lib/liveAdapters/goNoGoReviewTypes.ts` — 审查类型
+- `lib/liveAdapters/goNoGoReview.ts` — 22 项 Go/No-Go 评估
+- `lib/liveAdapters/goNoGoReview.test.ts` — 43 个测试
+- `tests/phase6GoNoGoBoundary.test.ts` — 边界测试
+
+##### 结论
+| 指标 | 值 |
+|------|-----|
+| 审查项目 | 22 |
+| ✅ Pass (设计完成) | 12 |
+| 🔴 Blocked | 7 |
+| ⚪ Not Started | 2 |
+| Required Blocked | 11 |
+| **Decision** | **❌ NO-GO** |
+
+##### 不包含
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.9 — NO-GO Remediation Plan（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 6.9 仅限于 NO-GO remediation plan，不允许真实请求、签名、Secret 解密。**
 
 ---
 
