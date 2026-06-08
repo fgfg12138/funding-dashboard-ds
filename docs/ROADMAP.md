@@ -1,7 +1,7 @@
 # Roadmap — 资金费率套利平台长期路线图
 
 本路线图定义了项目从只读看板逐步演进为全功能套利平台的阶段性计划。
-**当前项目处于 Phase 5.30 RC Freeze 已完成 — 所有 /api/testnet/* route 返回 403，readiness=false，无真实 testnet 能力。Phase 6 BLOCKED pending human approval + external security review。** 每个阶段都设置了明确的边界和前置条件，
+**当前项目处于 Phase 6.0 (Real Testnet Readiness Review) 已完成 — 所有 /api/testnet/* route 返回 403，readiness=false。Phase 6.1+ BLOCKED pending human approval + external security review。** 每个阶段都设置了明确的边界和前置条件，
 不能跳过中间阶段直接进入自动交易。
 
 ---
@@ -228,7 +228,7 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 
 ## Phase 5 — 实盘自动交易（完整风控）
 
-> **状态：Phase 5.0–5.30 RC Freeze 已完成。Phase 6 BLOCKED — 等待人工审批 + 外部安全审查。**
+> **状态：Phase 5.0–5.30 RC Freeze 已完成。Phase 6.0 已完成。Phase 6.1+ BLOCKED — 等待审批。**
 > **Readiness: ❌ NOT READY — 11 项 required 检查未通过**
 > **阶段命名：Fully Automated Trading**
 
@@ -996,14 +996,45 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-### Phase 6 — 真实 Testnet 集成规划（BLOCKED — 等待人工审批 + 外部安全审查）
+### Phase 6 — 真实 Testnet 集成规划
 
-> **⚠ Phase 6 需要满足以下全部条件方可进入：**
-> 1. 代码审查通过
-> 2. 外部安全审查通过
-> 3. 合规审查通过
-> 4. 项目决策确认
-> 5. Phase 6 设计文档审批
+> **状态：Phase 6.0 已完成。Phase 6.1+ BLOCKED — 等待代码审查、外部安全审查和项目决策。**
+
+#### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
+
+##### 包含
+- `docs/PHASE_6_REAL_TESTNET_READINESS_REVIEW.md` — 3.8 KB 审查文档
+- `lib/liveAdapters/phase6ReadinessTypes.ts` — 审查类型
+- `lib/liveAdapters/phase6ReadinessReview.ts` — 21 项审查评估
+- `lib/liveAdapters/phase6ReadinessReview.test.ts` — 50 个测试
+
+##### 审查结论
+| 指标 | 值 |
+|------|-----|
+| Total Items | 21 |
+| ✅ Pass | 10 |
+| 🔴 Blocked | 7 |
+| ⚪ Not Started | 4 |
+| Required Blocked | 11 |
+| **Ready for Real Testnet** | **❌ NO** |
+
+##### 关键阻塞项（7 项）
+- Server-side secret retrieval 🔴
+- Real permission verification 🔴
+- Signing implementation (HMAC/ed25519) 🔴
+- Middleware testnet mutation allowlist 🔴
+- Persistent audit storage 🔴
+- Rollback plan 🔴
+- Real Binance testnet adapter 🔴
+
+##### 不包含
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+- ✗ 任何新增 API
+
+#### Phase 6.1+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 
