@@ -1088,7 +1088,38 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ middleware 修改
 - ✗ 真实 testnet 请求
 
-#### Phase 6.3+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.3 — Real Permission Verification Design（✅ 已完成 — Design Only）
+
+##### 包含
+- `docs/REAL_PERMISSION_VERIFICATION_DESIGN.md` — 3.1 KB 设计文档
+- `lib/liveAdapters/realPermissionVerificationTypes.ts` — 权限检测类型
+- `lib/liveAdapters/realPermissionVerificationPolicy.ts` — 5 项规则策略
+- `lib/liveAdapters/realPermissionVerificationPolicy.test.ts` — 19 个测试
+
+##### 设计覆盖
+- 权限检测必要性（4 个风险点）
+- 3 种权限规则（withdraw ❌ / trade ✅ / read ✅ / IP whitelist ✅）
+- 3 个交易所差异（Binance / OKX / Bybit）
+- 6 项前置条件
+- 权限缓存和过期策略（5 分钟 TTL）
+
+##### Policy 规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | environment !== "testnet" | ❌ ENVIRONMENT_NOT_TESTNET |
+| 2 | vaultPolicyAllowed !== true | ❌ VAULT_POLICY_NOT_ALLOWED |
+| 3 | auditPersistenceReady !== true | ❌ AUDIT_PERSISTENCE_NOT_READY |
+| 4 | killSwitchDisabled !== true | ❌ KILL_SWITCH_ACTIVE |
+| 5 | 全部通过 | ❌ PHASE_6_3_PERMISSION_VERIFICATION_DISABLED |
+
+##### 不包含
+- ✗ 真实权限检测请求
+- ✗ Secret 读取/解密
+- ✗ 签名
+- ✗ middleware 修改
+- ✗ 真实 testnet 请求
+
+#### Phase 6.4+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 

@@ -71,7 +71,7 @@
 | 领域 | 完成内容 | 对应 Phase |
 |------|---------|-----------|
 | Secret Storage | 加密存储架构 + 禁止 client 访问 + vault design | 3, 5.8, 6.2 |
-| Permission | 权限检查骨架 | 5.19 |
+| Permission | 权限检查骨架 + real verification design | 5.19, 6.3 |
 | Signing | 签名策略定义 | 5.8 |
 | Middleware | READ_ONLY_MODE 防护 | 4 |
 | Kill Switch | 概念设计（guard 中） | 5.10 |
