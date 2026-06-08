@@ -228,39 +228,122 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 
 ## Phase 5 — 实盘自动交易（完整风控）
 
-> **状态：设计阶段 — 阻塞于 Live Adapter Design + Sandbox/Testnet**
+> **状态：进行中 — Phase 5.0 Live Adapter Design + Sandbox Plan 已完成**
 > **阶段命名：Fully Automated Trading**
 
 > **⚠ 进入 Phase 5 前必须完成：Live Adapter Design 文档 + 至少一个交易所的沙盒/测试网接入。**
 > **⚠ Phase 5 不允许直接在主网实现下单代码 — 必须先通过沙盒验证。**
+> **⚠ EXCHANGE_ENV 默认值为 "disabled"，LIVE_TRADING_ENABLED 默认值为 false。**
 
-### 包含
-- 策略可设置为自动执行模式
-- 系统自动监控信号、自动开平仓
-- 完整风控引擎实时运行（止损、仓位限制、日亏限制、最大回撤）
-- 审计日志记录每笔系统自动操作
-- 紧急停止开关
-- 定期压力测试
+### Phase 5.0 — Live Adapter Design + Sandbox/Testnet 设计（✅ 已完成）
 
-### 不包含
-- ✗ 不经过风控的自动执行
-- ✗ 无日志的交易
-- ✗ 手动干预渠道缺失
+#### 包含
+- `docs/LIVE_ADAPTER_DESIGN.md` — TradingAdapter 接口设计、订单生命周期、三层架构
+- `docs/SANDBOX_TESTNET_PLAN.md` — 沙盒/测试网接入计划、环境变量设计、安全默认值
+- `lib/liveAdapters/tradingAdapterTypes.ts` — TradingAdapter interface（仅类型，无实现）
+- 12 项 Phase 5 边界测试（tradingAdapterTypes 无实现、无 mainnet 文件、环境变量默认 safe 等）
 
-### 风险边界
-- 自动交易前必须有完整的沙盒测试周期
-- 交易参数有硬编码的全局安全限制
-- 所有操作用审计日志记录
-- 必须通过交易所沙盒环境验证
-- 用户可随时接管为手动模式
+#### 不包含
+- ✗ TradingAdapter 的实现代码
+- ✗ 真实的交易所连接
+- ✗ 任何下单功能
+- ✗ SDK 引入或 fetch 调用
 
-### 前置条件
-- ✅ Phase 4 半自动交易链路完整（已满足）
-- ⏳ Live Adapter Design（待完成）
-- ⏳ Sandbox/Testnet 环境可用（待完成）
-- ⏳ TradingAdapter 接口设计评审（待完成）
-- ⏳ Phase 5 安全审查（待完成）
-- ⏳ 法律合规审查（待完成）
+### Phase 5.1+ — 后续阶段
+
+- **5.1**: Mock Sandbox TradingAdapter（✅ 已完成）
+- **5.2**: Sandbox 集成测试（连接真实测试网）
+- **5.3**: 主网适配器（需沙盒验证通过）
+- **5.4**: 策略自动执行（Kill Switch + 风控集成）
+- **5.5**: 合规审查 + 上线
+
+### Phase 5.1 — Mock Sandbox TradingAdapter（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/mockSandboxTradingAdapter.ts` — Mock 实现，不发送任何网络请求
+- 所有结果标记 `source: "mock-sandbox"`
+- validateEnvironment / validatePermissions 通过但标记 Mock
+- submitSandboxOrder 返回 `sandbox-submitted` 状态
+- 10 个单元测试全部通过
+- boundary 测试确认 executionQueueTypes 未被修改
+
+#### 不包含
+- ✗ 真实的 sandbox/testnet 网络请求
+- ✗ API Key 读取或解密
+- ✗ 任何下单功能
+- ✗ SDK 引入或 fetch 调用
+
+### Phase 5.2 — Sandbox Order Lifecycle Store（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/sandboxOrderLifecycleTypes.ts` — SandboxOrderLifecycleRecord 类型
+- `lib/liveAdapters/sandboxOrderLifecycleStore.ts` — localStorage 生命周期存储
+- 支持状态流转：sandbox-ready → submitted → filled / cancelled / failed
+- 集成 /execution-queue 页面，每行显示「Mock 沙盒」按钮
+- 10 个单元测试全部通过
+- 不修改 executionQueueTypes
+
+#### 不包含
+- ✗ 真实的 sandbox/testnet 网络请求
+- ✗ API Key 读取或解密
+- ✗ 任何下单功能
+- ✗ SDK 引入或 fetch 调用
+
+### Phase 5.3 — Sandbox Lifecycle 页面（✅ 已完成）
+
+#### 包含
+- `app/sandbox-lifecycle/page.tsx` — Mock Sandbox 生命周期查看页面
+- 统计卡片：总记录 / 就绪 / 已提交 / 已成交 / 已取消 / 已失败
+- 状态筛选器 + 清空操作
+- 表格展示全部生命周期字段，支持标记取消和失败
+- 标记操作写入 audit event + local notification
+- 页面明确标注「Mock 数据，不代表真实交易」
+
+#### 不包含
+- ✗ 真实的 sandbox/testnet 网络请求
+- ✗ 任何下单功能
+- ✗ API Key 读取或解密
+
+### Phase 5.4 — Sandbox Safety Gate（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/sandboxSafetyGate.ts` — 10 项安全检查纯函数
+- 覆盖：Kill Switch / 队列状态 / 过期 / Confirmation / Preview / RiskGate / Source / Environment / LiveTrading / Mainnet
+- /execution-queue 页面集成：点击 Mock 沙盒前先过 Safety Gate
+- 拦截时写入 `sandbox_safety_blocked` audit event + notification
+- 13 个单元测试全部通过
+
+#### 不包含
+- ✗ 真实的 sandbox/testnet 网络请求
+- ✗ 任何下单功能
+- ✗ API Key 读取或解密
+
+### Phase 5.5 — Mock Sandbox Closure 收口验收（✅ 已完成）
+
+#### 包含
+- `docs/PHASE_5_MOCK_SANDBOX_CLOSURE_CHECKLIST.md` — 完整验收文档
+- `tests/phase5MockSandboxBoundary.test.ts` — 17 项边界测试
+- 覆盖：no-fetch / no-axios / no-SDK / no-mainnet / source=mock-sandbox / env defaults safe / status isolation / page text / no secret decryption / doc assertions
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ 任何下单功能
+- ✗ API Key 读取或解密
+
+### Phase 5.6 — Real Testnet Adapter Design（⬆ Next — 阻塞于代码审查）
+
+> **⚠ Phase 5.6 需要先完成代码审查，审查通过后进入真实 testnet 设计。**
+> **真实 testnet 仍不能直接接主网。**
+
+#### 前置条件
+- ✅ Phase 5.0–5.5 Mock Sandbox 链路完整
+- ⏳ 代码审查（待完成）
+- ⏳ 独立 testnet 环境变量设计
+- ⏳ 单交易所 testnet adapter 实现
+- ⏳ Server-side Secret handling 设计
+- ⏳ Testnet-only middleware route
+- ⏳ Fail-safe Kill Switch 自动触发
+- ⏳ Testnet rollback plan
 
 ---
 

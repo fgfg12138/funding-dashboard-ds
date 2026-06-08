@@ -10,7 +10,12 @@ export type AuditEventType =
   | "execution_queue_cancelled"
   | "execution_queue_expired"
   | "kill_switch_enabled"
-  | "kill_switch_disabled";
+  | "kill_switch_disabled"
+  | "sandbox_lifecycle_created"
+  | "sandbox_order_mock_submitted"
+  | "sandbox_order_mock_cancelled"
+  | "sandbox_order_mock_failed"
+  | "sandbox_safety_blocked";
 
 export type AuditActor = "local-user" | "system";
 
@@ -21,7 +26,8 @@ export type AuditEntityType =
   | "paper_execution"
   | "risk_gate"
   | "execution_queue"
-  | "safety";
+  | "safety"
+  | "sandbox_lifecycle";
 
 export type AuditSeverity = "info" | "warning" | "blocked" | "error";
 

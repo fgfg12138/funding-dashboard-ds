@@ -26,6 +26,10 @@ const EVENT_LABELS: Record<string, string> = {
   execution_queue_expired: "队列过期",
   kill_switch_enabled: "Kill Switch 开启",
   kill_switch_disabled: "Kill Switch 关闭",
+  sandbox_lifecycle_created: "Sandbox Lifecycle 创建",
+  sandbox_order_mock_submitted: "Sandbox Mock 已提交",
+  sandbox_order_mock_cancelled: "Sandbox Mock 已取消",
+  sandbox_order_mock_failed: "Sandbox Mock 已失败",
 };
 
 export default function AuditPage() {

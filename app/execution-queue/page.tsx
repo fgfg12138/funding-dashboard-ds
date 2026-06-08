@@ -7,6 +7,11 @@ import { listQueueItems, cancelQueueItem, filterQueueItems } from "@/lib/orders/
 import type { ExecutionQueueItem } from "@/lib/orders/executionQueueTypes";
 import { isKillSwitchEnabled } from "@/lib/safety/safetyStore";
 import { buildQueueHealthSummary, expireDueQueueItems } from "@/lib/orders/executionQueueRecovery";
+import { createMockSandboxTradingAdapter } from "@/lib/liveAdapters/mockSandboxTradingAdapter";
+import { createSandboxLifecycleRecord, appendSandboxOrderResult } from "@/lib/liveAdapters/sandboxOrderLifecycleStore";
+import { evaluateSandboxSafetyGate } from "@/lib/liveAdapters/sandboxSafetyGate";
+import { createAuditEvent } from "@/lib/audit/auditStore";
+import { createLocalNotification } from "@/lib/notifications/localNotificationStore";
 
 const STATUS_LABELS: Record<string, string> = {
   "queued-preview-only": "队列中",
@@ -49,6 +54,97 @@ export default function ExecutionQueuePage() {
       loadItems();
     }
   }, [items, loadItems]);
+
+  const [sandboxMsg, setSandboxMsg] = useState<string | null>(null);
+  const [sandboxMsgSev, setSandboxMsgSev] = useState<"info" | "error">("info");
+
+  const handleMockSandbox = useCallback(async (item: ExecutionQueueItem) => {
+    // Run Sandbox Safety Gate first
+    const gateResult = evaluateSandboxSafetyGate({
+      queueItem: item,
+      safetyState: { killSwitchEnabled: isKillSwitchEnabled(), reason: null, enabledBy: "local-user", enabledAt: null, disabledAt: null, updatedAt: 0, source: "local" },
+      now: Date.now(),
+    });
+
+    if (!gateResult.allowed) {
+      createAuditEvent({
+        eventType: "sandbox_safety_blocked",
+        entityType: "sandbox_lifecycle",
+        entityId: item.id,
+        symbol: item.symbol,
+        strategyName: item.strategyName,
+        severity: "blocked",
+        message: `Sandbox Safety Gate 拦截: ${gateResult.reasonCodes[0] ?? "未知原因"}`,
+      });
+      createLocalNotification({
+        type: "system",
+        severity: "blocked",
+        title: "Sandbox 安全门禁拦截",
+        message: `${item.symbol} — ${gateResult.reasonCodes[0] ?? "未知原因"}`,
+        entityType: "sandbox_lifecycle",
+        entityId: item.id,
+        symbol: item.symbol,
+      });
+      setSandboxMsg(`❌ 安全门禁拦截: ${gateResult.reasonCodes[0] ?? "未知原因"}`);
+      setSandboxMsgSev("error");
+      setTimeout(() => setSandboxMsg(null), 8000);
+      return;
+    }
+
+    const adapter = createMockSandboxTradingAdapter("Binance");
+    const preview = item.previewSnapshot;
+    const confirmation = item.confirmationSnapshot;
+    const request = adapter.buildSandboxOrderRequest(preview, confirmation);
+
+    // Create lifecycle record
+    const lifecycle = createSandboxLifecycleRecord({
+      queueItemId: item.id,
+      confirmationId: item.confirmationId,
+      previewId: item.previewId,
+      opportunityId: item.opportunityId,
+      symbol: item.symbol,
+      exchangeId: "Binance",
+      request,
+    });
+
+    createAuditEvent({
+      eventType: "sandbox_lifecycle_created",
+      entityType: "sandbox_lifecycle",
+      entityId: lifecycle.id,
+      symbol: item.symbol,
+      strategyName: item.strategyName,
+      severity: "info",
+      message: `Mock Sandbox lifecycle created for ${item.symbol}`,
+    });
+
+    // Submit mock order
+    const result = await adapter.submitSandboxOrder(request);
+    appendSandboxOrderResult(lifecycle.id, result);
+
+    createAuditEvent({
+      eventType: "sandbox_order_mock_submitted",
+      entityType: "sandbox_lifecycle",
+      entityId: lifecycle.id,
+      symbol: item.symbol,
+      strategyName: item.strategyName,
+      severity: "info",
+      message: `Mock Sandbox order submitted: ${result.orderId}`,
+    });
+
+    createLocalNotification({
+      type: "system",
+      severity: "info",
+      title: "Mock Sandbox 已提交",
+      message: `${item.symbol} — 模拟沙盒订单已创建 (ID: ${lifecycle.id})`,
+      entityType: "sandbox_lifecycle",
+      entityId: lifecycle.id,
+      symbol: item.symbol,
+    });
+
+    setSandboxMsg(`✅ Mock Sandbox 生命周期记录已创建，不是真实提交 (${lifecycle.id})`);
+    setSandboxMsgSev("info");
+    setTimeout(() => setSandboxMsg(null), 5000);
+  }, []);
 
   return (
     <PageShell
@@ -108,6 +204,16 @@ export default function ExecutionQueuePage() {
         );
       })()}
 
+      {sandboxMsg && (
+        <section className={`px-4 py-3 text-xs ${
+          sandboxMsgSev === "error"
+            ? "border border-rose-400/30 bg-rose-400/10 text-rose-200"
+            : "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+        }`}>
+          <p>{sandboxMsg}</p>
+        </section>
+      )}
+
       <section className="flex items-center gap-3 border border-slate-800 bg-slate-950/40 px-4 py-3">
         <label className="flex items-center gap-2 text-xs text-slate-400">
           <span>状态</span>
@@ -156,6 +262,15 @@ export default function ExecutionQueuePage() {
                         type="button"
                       >
                         {canCancel ? "取消" : "-"}
+                      </button>
+                      <button
+                        className="ml-1 h-7 border border-emerald-400/30 bg-emerald-400/10 px-2 text-xs text-emerald-200 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={item.status !== "queued-preview-only"}
+                        onClick={() => handleMockSandbox(item)}
+                        title="创建 Mock Sandbox Lifecycle — 不是真实提交"
+                        type="button"
+                      >
+                        Mock 沙盒
                       </button>
                     </Td>
                   </tr>

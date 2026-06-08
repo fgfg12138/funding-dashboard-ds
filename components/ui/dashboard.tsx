@@ -26,7 +26,8 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { href: "/audit", label: "审计日志" },
   { href: "/execution-queue", label: "执行队列" },
   { href: "/safety", label: "安全控制" },
-  { href: "/notifications-center", label: "本地通知" }
+  { href: "/notifications-center", label: "本地通知" },
+  { href: "/sandbox-lifecycle", label: "沙盒生命周期" }
 ];
 
 export function AppShell({

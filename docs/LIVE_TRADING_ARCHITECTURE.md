@@ -183,6 +183,22 @@
 > **Phase 4 确认项目仍无 submitOrder / placeOrder / live trading adapter 实现。**
 > **下一阶段是 Phase 5 实盘自动交易设计，但必须先完成 Live Adapter Design + Sandbox/Testnet。**
 
+### Phase 5.0 — Live Adapter Design + Sandbox/Testnet 设计（✅ 已完成）
+
+> 新增 TradingAdapter 接口设计文档和沙盒接入计划。仅设计文档，无实盘能力。
+
+#### 已实现
+- `docs/LIVE_ADAPTER_DESIGN.md` — TradingAdapter interface + 订单生命周期 + 三层架构
+- `docs/SANDBOX_TESTNET_PLAN.md` — 环境变量设计 + 测试网接入计划 + 安全默认值
+- `lib/liveAdapters/tradingAdapterTypes.ts` — TradingAdapter interface（仅类型，无实现）
+- `tests/phase5DesignBoundary.test.ts` — 12 项边界测试
+
+#### 未实现
+- ✗ 真实的 TradingAdapter 实现代码
+- ✗ 真实的交易所连接
+- ✗ 任何下单功能
+- ✗ SDK 引入或 fetch 调用
+
 ### API Key 加密存储方案
 
 ```
