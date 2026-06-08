@@ -1185,7 +1185,30 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-#### Phase 6.6+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.6 — Phase 6 Design Closure Review（✅ 已完成 — Design Review Only）
+
+##### 包含
+- `docs/PHASE_6_DESIGN_CLOSURE_REVIEW.md` — 4.3 KB 设计收口文档
+- `tests/phase6DesignClosureReview.test.ts` — 边界测试
+
+##### 收口验证
+- 5 个设计模块全部完成（6.1–6.5）
+- 7 个必要实现项尚未开始
+- 所有 policy 文件无 fetch/axios/secret/signing/SDK
+- 所有 route 仍返回 403
+- middleware 未修改
+- readiness 仍为 false
+
+##### 不包含
+- ✗ 真实实现
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.7 — Code Review Fixes（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 6.7 仅限于 code review fixes，不允许真实请求、签名、Secret 解密。**
 
 ---
 
