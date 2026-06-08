@@ -130,17 +130,18 @@ export function buildTestnetReadinessChecklist(): TestnetReadinessResult {
  */
 export function summarizeReadinessByCategory(
   result: TestnetReadinessResult,
-): Record<TestnetReadinessCategory, { total: number; passed: number; blocked: number }> {
-  const summary: Record<string, { total: number; passed: number; blocked: number }> = {};
+): Record<TestnetReadinessCategory, { total: number; passed: number; blocked: number; notStarted: number }> {
+  const summary: Record<string, { total: number; passed: number; blocked: number; notStarted: number }> = {};
 
   for (const item of result.items) {
     if (!summary[item.category]) {
-      summary[item.category] = { total: 0, passed: 0, blocked: 0 };
+      summary[item.category] = { total: 0, passed: 0, blocked: 0, notStarted: 0 };
     }
     summary[item.category].total++;
     if (item.status === "pass") summary[item.category].passed++;
     if (item.status === "blocked") summary[item.category].blocked++;
+    if (item.status === "not-started") summary[item.category].notStarted++;
   }
 
-  return summary as Record<TestnetReadinessCategory, { total: number; passed: number; blocked: number }>;
+  return summary as Record<TestnetReadinessCategory, { total: number; passed: number; blocked: number; notStarted: number }>;
 }

@@ -10,7 +10,7 @@
  * 3. exchangeId not in binance/okx/bybit → blocked
  * 4. submit route: symbol, side, orderType required; quantity > 0; limit requires price
  * 5. cancel/status route: orderId required
- * 6. account-snapshot: exchangeId must exist
+ * 6. account-snapshot: exchangeId checked by general rules (rules 2-3 apply to all routes)
  * 7. Sensitive fields (secret, apiSecret, secretKey, password, privateKey) → blocked + sanitized
  * 8. Phase 5.20: even valid → route still returns 403
  */

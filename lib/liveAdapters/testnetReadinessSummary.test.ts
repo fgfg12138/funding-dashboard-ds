@@ -65,15 +65,18 @@ describe("getRequiredBlockers", () => {
     }
   });
 
-  it("contains middleware-allowlist", () => {
-    expect(blockers.some((b) => b.id === "middleware-allowlist")).toBe(true);
-  });
-
-  it("contains real-binance-adapter", () => {
-    expect(blockers.some((b) => b.id === "real-binance-adapter")).toBe(true);
-  });
-
-  it("contains signing-implementation", () => {
-    expect(blockers.some((b) => b.id === "signing-implementation")).toBe(true);
+  it("blocks for all critical blockers (complete list)", () => {
+    const blockerIds = blockers.map((b) => b.id);
+    expect(blockerIds).toContain("middleware-allowlist");
+    expect(blockerIds).toContain("secret-server-retrieval");
+    expect(blockerIds).toContain("real-permission-verification");
+    expect(blockerIds).toContain("signing-implementation");
+    expect(blockerIds).toContain("real-binance-adapter");
+    expect(blockerIds).toContain("audit-persistent");
+    expect(blockerIds).toContain("rollback-plan");
+    expect(blockerIds).toContain("kill-switch");
+    expect(blockerIds).toContain("env-separate-staging");
+    expect(blockerIds).toContain("ops-approval");
+    expect(blockerIds).toContain("monitoring");
   });
 });

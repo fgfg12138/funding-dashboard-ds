@@ -8,8 +8,8 @@
  * Rules:
  * 1. secretPolicyResult.allowedToRequestSecret !== true → blocked
  * 2. Default: canRead=false, canTrade=false, canWithdraw=false, ipWhitelistPresent=false
- * 3. canWithdraw=true → blocked (withdraw must never be allowed on testnet)
- * 4. ipWhitelistPresent=false → blocked (IP whitelist required)
+ * 3. Withdraw always disabled in skeleton (canWithdraw is never true)
+ * 4. IP whitelist always absent in skeleton (ipWhitelistPresent is never true)
  * 5. Phase 5.19: always blocked with PHASE_5_19_PERMISSION_CHECK_DISABLED
  */
 
@@ -44,13 +44,13 @@ export function evaluateTestnetPermissionCheck(
     }
   }
 
-  // Rule 3: canWithdraw must never be true
+  // Rule 3: withdraw always disabled in skeleton
   blocks.push({
     reasonCode: "WITHDRAW_DISABLED_IN_SKELETON",
     message: "Withdraw permission disabled in skeleton — never allowed on testnet",
   });
 
-  // Rule 4: ipWhitelist must be present
+  // Rule 4: IP whitelist always absent in skeleton
   blocks.push({
     reasonCode: "IP_WHITELIST_REQUIRED",
     message: "IP whitelist check required — skeleton defaults to false",

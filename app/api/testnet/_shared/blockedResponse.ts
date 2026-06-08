@@ -1,7 +1,9 @@
 /**
  * Shared blocked response helpers for /api/testnet/* route skeletons.
  *
- * Phase 5.11: All routes use these helpers to produce uniform 403 blocked responses.
+ * Phase 5.11–5.20: Env config, guard, secret policy, permission check,
+ * request validation, idempotency, rate limit, audit — all integrated
+ * into buildGuardedBlockedResponseWithRateLimit.
  * No real testnet interaction, no secret decryption, no signing.
  */
 

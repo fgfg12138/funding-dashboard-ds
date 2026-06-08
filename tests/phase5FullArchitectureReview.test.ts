@@ -143,14 +143,16 @@ describe("Phase 5.27 — Middleware Not Modified", () => {
 
 describe("Phase 5.27 — blockedResponse Never Success True", () => {
   const helper = read("app/api/testnet/_shared/blockedResponse.ts");
-  const bodyMatches = helper.match(/success:\s*(true|false)/g);
+  const bodyMatches = helper.match(/success:\s*(true|false)/g) || [];
 
-  if (bodyMatches) {
-    for (const m of bodyMatches) {
-      it(`success value is 'false' (found: ${m})`, () => {
-        expect(m).toBe("success: false");
-      });
-    }
+  it("finds at least one success field in blockedResponse", () => {
+    expect(bodyMatches.length).toBeGreaterThan(0);
+  });
+
+  for (const m of bodyMatches) {
+    it(`success value is 'false' (found: ${m})`, () => {
+      expect(m).toBe("success: false");
+    });
   }
 });
 
