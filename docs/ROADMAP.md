@@ -1119,7 +1119,40 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ middleware 修改
 - ✗ 真实 testnet 请求
 
-#### Phase 6.4+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.4 — Signing Architecture Design（✅ 已完成 — Design Only）
+
+##### 包含
+- `docs/SIGNING_ARCHITECTURE_DESIGN.md` — 3.8 KB 设计文档
+- `lib/liveAdapters/signingArchitectureTypes.ts` — 签名策略类型
+- `lib/liveAdapters/signingPolicy.ts` — 8 项规则签名策略
+- `lib/liveAdapters/signingPolicy.test.ts` — 24 个测试
+
+##### 设计覆盖
+- 3 个交易所签名差异（Binance / OKX / Bybit）
+- 8 项签名前置条件
+- Nonce / Timestamp / Replay 防护设计
+- Signed payload 禁止进入日志和 audit
+- Error handling
+
+##### Policy 规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | environment !== "testnet" | ❌ ENVIRONMENT_NOT_TESTNET |
+| 2 | vaultAccessAllowed !== true | ❌ VAULT_ACCESS_NOT_ALLOWED |
+| 3 | permissionVerificationPassed !== true | ❌ PERMISSION_VERIFICATION_NOT_PASSED |
+| 4 | auditPersistenceReady !== true | ❌ AUDIT_PERSISTENCE_NOT_READY |
+| 5 | killSwitchDisabled !== true | ❌ KILL_SWITCH_ACTIVE |
+| 6 | requestValidationPassed !== true | ❌ REQUEST_VALIDATION_NOT_PASSED |
+| 7 | idempotencyChecked !== true | ❌ IDEMPOTENCY_NOT_CHECKED |
+| 8 | 全部通过 | ❌ PHASE_6_4_SIGNING_DISABLED |
+
+##### 不包含
+- ✗ HMAC 实现
+- ✗ Secret 读取/解密
+- ✗ 真实 testnet 请求
+- ✗ middleware 修改
+
+#### Phase 6.5+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 
