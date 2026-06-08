@@ -1057,7 +1057,38 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-#### Phase 6.2+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.2 — Server Secret Vault Design（✅ 已完成 — Design Only）
+
+##### 包含
+- `docs/SERVER_SECRET_VAULT_DESIGN.md` — 3.9 KB 设计文档
+- `lib/liveAdapters/secretVaultTypes.ts` — Vault 类型
+- `lib/liveAdapters/secretVaultPolicy.ts` — Vault 访问策略（5 项规则）
+- `lib/liveAdapters/secretVaultPolicy.test.ts` — 20 个测试
+
+##### 设计覆盖
+- Vault Provider: disabled / env-encrypted / managed-kms
+- Server-only secret boundary 设计
+- 禁止存储 6 类场景
+- Secret access 前置条件（6 项）
+- Rotation / Revocation / Emergency wipe
+
+##### Policy 规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | provider === "disabled" | ❌ VAULT_PROVIDER_DISABLED |
+| 2 | environment !== "testnet" | ❌ ENVIRONMENT_NOT_TESTNET |
+| 3 | auditPersistenceReady !== true | ❌ AUDIT_PERSISTENCE_NOT_READY |
+| 4 | killSwitchDisabled !== true | ❌ KILL_SWITCH_ACTIVE |
+| 5 | 全部通过 | ❌ PHASE_6_2_VAULT_ACCESS_DISABLED |
+
+##### 不包含
+- ✗ 真实 Secret 读取/解密
+- ✗ 签名
+- ✗ 数据库连接
+- ✗ middleware 修改
+- ✗ 真实 testnet 请求
+
+#### Phase 6.3+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 
