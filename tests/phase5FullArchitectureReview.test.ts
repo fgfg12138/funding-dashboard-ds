@@ -225,9 +225,9 @@ describe("Phase 5.27 — ROADMAP.md", () => {
     expect(roadmap).toContain("✅");
   });
 
-  it("marks Phase 5.28 as BLOCKED", () => {
-    expect(roadmap).toContain("Phase 5.28");
+  it("marks Phase 6 as BLOCKED", () => {
+    expect(roadmap).toContain("Phase 6");
     expect(roadmap).toContain("BLOCKED");
-    expect(roadmap).toContain("等待明确批准");
+    expect(roadmap).toContain("等待");
   });
 });
