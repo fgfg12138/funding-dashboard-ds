@@ -76,3 +76,20 @@ export {
   filterEligibleOpportunities,
   normalizeAllocationWeights,
 } from "./capitalAllocationEngine";
+
+// Portfolio Engine (Alpha A7)
+export type {
+  PortfolioEngineConfig,
+  PortfolioPositionContribution,
+  PortfolioPositionInput,
+  PortfolioReport,
+  PortfolioSummary,
+} from "./portfolioTypes";
+
+export {
+  calculateCapitalUtilization,
+  calculatePortfolioApy,
+  calculatePortfolioReport,
+  calculatePortfolioSummary,
+  calculatePositionContribution,
+} from "./portfolioEngine";
