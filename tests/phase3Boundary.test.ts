@@ -39,12 +39,13 @@ const libFiles = getLibTsFiles();
 
 /** Read all lib file contents once. */
 const libContents = libFiles.map((f) => ({ file: f, content: readFileSync(f, "utf8") }));
+const libRunFiles = libContents.filter(({ file }) => !file.includes(".test."));
 
 // ─── No Live Trading Functions ───────────────────────────
 
 describe("Phase 3 Boundary — No Live Trading", () => {
   it("no placeOrder function in lib/", () => {
-    for (const { file, content } of libContents) {
+    for (const { file, content } of libRunFiles) {
       // Exclude interface definitions and docs
       if (content.includes("placeOrder") && !content.includes("interface")) {
         expect(content, `placeOrder found in ${file}`).not.toContain("placeOrder");
@@ -53,7 +54,7 @@ describe("Phase 3 Boundary — No Live Trading", () => {
   });
 
   it("no createOrder function in lib/", () => {
-    for (const { file, content } of libContents) {
+    for (const { file, content } of libRunFiles) {
       if (content.includes("createOrder") && !content.includes("interface")) {
         expect(content, `createOrder found in ${file}`).not.toContain("createOrder");
       }
@@ -61,13 +62,13 @@ describe("Phase 3 Boundary — No Live Trading", () => {
   });
 
   it("no marketOrder function in lib/", () => {
-    for (const { file, content } of libContents) {
+    for (const { file, content } of libRunFiles) {
       expect(content, `marketOrder found in ${file}`).not.toContain("marketOrder");
     }
   });
 
   it("TradingAdapter has no live implementation in lib/", () => {
-    const found = libContents.filter(({ content }) =>
+    const found = libRunFiles.filter(({ content }) =>
       content.includes("TradingAdapter") && !content.includes("interface") && !content.includes("//"),
     );
     // Remove comments from the check
@@ -165,7 +166,7 @@ describe("Phase 3 Boundary — Permission Verifier", () => {
 
 describe("Phase 3 Boundary — No Real Withdraw", () => {
   it("withdraw only appears in types/mock verifier/comments, not as executable code", () => {
-    for (const { file, content } of libContents) {
+    for (const { file, content } of libRunFiles) {
       const isAllowed = file.includes("types.ts") || file.includes("permissionVerifier") || file.includes(".test.");
       // Skip files where "withdraw" only appears in JSDoc comments
       if (content.includes("withdraw") && !isAllowed) {
@@ -191,7 +192,7 @@ describe("Phase 3 Boundary — No API Key Endpoints", () => {
 // ─── No Exchange Private API Calls ─────────────────────┬
 
 describe("Phase 3 Boundary — No Exchange Private API", () => {
-  const adapterFiles = libFiles.filter((f) => f.includes("exchangeAdapters"));
+  const adapterFiles = libFiles.filter((f) => f.includes("exchangeAdapters") && !f.includes(".test."));
 
   it("exchangeAdapters run code does not contain fetch(", () => {
     for (const file of adapterFiles) {

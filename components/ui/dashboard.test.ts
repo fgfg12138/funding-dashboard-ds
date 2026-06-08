@@ -19,7 +19,11 @@ describe("APP_NAV_ITEMS", () => {
       { href: "/execution", label: "执行中心" },
       { href: "/paper-portfolio", label: "模拟资产" },
       { href: "/api-keys", label: "API管理" },
-      { href: "/account-sync", label: "账户同步" }
+      { href: "/account-sync", label: "账户同步" },
+      { href: "/audit", label: "审计日志" },
+      { href: "/execution-queue", label: "执行队列" },
+      { href: "/safety", label: "安全控制" },
+      { href: "/notifications-center", label: "本地通知" }
     ]);
   });
 });

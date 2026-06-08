@@ -18,13 +18,21 @@ import {
   listOpenExecutions,
   listClosedExecutions,
 } from "@/lib/execution/executionStore";
-import { createPaperExecutionFromOpportunity, estimateExecutionReturns } from "@/lib/execution/executionEngine";
+import { createPaperExecutionFromOpportunity, estimateExecutionReturns, buildExecutionLegs, normalizeOpportunityToExecutionInput } from "@/lib/execution/executionEngine";
 import { scoreOpportunity, type ScorableOpportunity } from "@/lib/opportunity/scoring";
 import { evaluateRiskGate } from "@/lib/risk/riskGate";
 import { buildAccountRiskContext, type AccountRiskContext } from "@/lib/risk/accountRiskContext";
 import { createPrivateAccountAdapter } from "@/lib/exchangeAdapters/privateAccountAdapter";
 import { getActivePaperTemplate } from "@/lib/execution/paperStrategyStore";
 import type { PaperStrategyTemplate } from "@/lib/execution/paperStrategyTypes";
+import { buildOrderPreview, executionLegsToPreviewLegs } from "@/lib/orders/orderPreviewBuilder";
+import type { OrderPreview } from "@/lib/orders/orderPreviewTypes";
+import { createConfirmation } from "@/lib/orders/orderConfirmationStore";
+import type { ConfirmationRecord } from "@/lib/orders/orderConfirmationTypes";
+import { enqueueConfirmedPreview } from "@/lib/orders/executionQueueStore";
+import { createAuditEvent } from "@/lib/audit/auditStore";
+import { createLocalNotification } from "@/lib/notifications/localNotificationStore";
+import { isKillSwitchEnabled } from "@/lib/safety/safetyStore";
 
 type ApiResponse<T> = {
   data: T;
@@ -42,6 +50,12 @@ export default function ExecutionPage() {
   const [accountCtx, setAccountCtx] = useState<AccountRiskContext | null>(null);
   const [search, setSearch] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [currentPreview, setCurrentPreview] = useState<OrderPreview | null>(null);
+  const [riskAccepted, setRiskAccepted] = useState(false);
+  const [discAccepted, setDiscAccepted] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+  const [lastConfirmation, setLastConfirmation] = useState<ConfirmationRecord | null>(null);
+  const [killSwitch, setKillSwitch] = useState(false);
 
   // Load opportunities from the existing API
   const loadOpps = useCallback(async () => {
@@ -63,6 +77,7 @@ export default function ExecutionPage() {
     setOpenExecutions(listOpenExecutions());
     setClosedExecutions(listClosedExecutions());
     setActiveTemplate(getActivePaperTemplate());
+    setKillSwitch(isKillSwitchEnabled());
   }, []);
 
   // Load mock account snapshots
@@ -173,14 +188,238 @@ export default function ExecutionPage() {
   const handleOpen = useCallback((opp: UnifiedOpportunity) => {
     const execution = createPaperExecutionFromOpportunity(opp);
     createPaperExecution(execution);
+    createAuditEvent({
+      eventType: "paper_execution_created",
+      entityType: "paper_execution",
+      entityId: execution.id,
+      symbol: opp.symbol,
+      exchangeIds: [opp.primaryExchange, opp.secondaryExchange].filter(Boolean) as string[],
+      strategyName: activeTemplate?.name ?? "默认模拟策略",
+      severity: "info",
+      message: `模拟开仓 ${opp.symbol} (${opp.opportunityType})`,
+    });
     loadExecutions();
-  }, [loadExecutions]);
+  }, [loadExecutions, activeTemplate]);
 
   // Close a paper execution
   const handleClose = useCallback((id: string) => {
+    const exe = openExecutions.find((e) => e.id === id);
     closePaperExecution({ id });
+    if (exe) {
+      createAuditEvent({
+        eventType: "paper_execution_closed",
+        entityType: "paper_execution",
+        entityId: id,
+        symbol: exe.symbol,
+        exchangeIds: exe.exchanges,
+        strategyName: activeTemplate?.name ?? "默认模拟策略",
+        severity: "info",
+        message: `模拟平仓 ${exe.symbol}`,
+      });
+    }
     loadExecutions();
-  }, [loadExecutions]);
+  }, [loadExecutions, openExecutions, activeTemplate]);
+
+  // Generate order preview for a specific opportunity
+  const handlePreview = useCallback((opp: UnifiedOpportunity) => {
+    const tpl = activeTemplate;
+    const defaultNotional = tpl?.defaultNotionalUsd ?? 1000;
+    const strategyName = tpl?.name ?? "默认模拟策略";
+    const feeRate = tpl?.feeRate ?? 0.001;
+    const slippageRate = tpl?.slippageRate ?? 0.0005;
+
+    setCurrentPreview(null);
+    setConfirmMsg(null);
+    setRiskAccepted(false);
+    setDiscAccepted(false);
+
+    const scoreResult = scoreOpportunity({
+      id: opp.id,
+      symbol: opp.symbol,
+      annualizedRate: opp.annualizedRate,
+      fundingRate: opp.fundingRate,
+      estimatedNetRate: opp.annualizedRate - (opp.annualizedRate > 0 ? 2 : 0),
+      volume24h: opp.volume24h,
+      openInterestUsd: opp.openInterestUsd,
+      riskTags: opp.riskTags,
+      hasSecondaryExchange: Boolean(opp.secondaryExchange),
+    });
+
+    const estimate = estimateExecutionReturns({
+      opportunityType: (opp.opportunityType === "CrossExchange" ? "cross-exchange" : opp.opportunityType === "SpotPerp" ? "spot-perp" : opp.opportunityType === "Basis" ? "basis" : "unknown") as "cross-exchange" | "spot-perp" | "basis",
+      annualizedRate: opp.annualizedRate,
+      fundingRate: opp.fundingRate ?? 0,
+      notionalUsd: defaultNotional,
+      fees: 2 * (feeRate * defaultNotional),
+      slippage: 2 * (slippageRate * defaultNotional),
+    });
+
+    const gateResult = evaluateRiskGate({
+      symbol: opp.symbol,
+      riskTags: opp.riskTags,
+      notionalUsd: defaultNotional,
+      scoringResult: scoreResult,
+      estimateResult: estimate,
+      openExecutions,
+      accountRiskContext: accountCtx ?? undefined,
+      config: {
+        ...(tpl ? { minScore: tpl.minScore, maxRiskLevel: tpl.maxRiskLevel, minAnnualizedNetRate: tpl.minAnnualizedNetRate, maxOpenExecutions: tpl.maxOpenExecutions, maxOpenNotionalUsd: tpl.maxOpenNotionalUsd, maxSymbolExposureUsd: tpl.maxSymbolExposureUsd, blockRiskTags: tpl.blockRiskTags } : {}),
+        includeAccountSnapshotRisk: Boolean(accountCtx),
+      },
+    });
+
+    // Build preview legs from the execution engine
+    const input = normalizeOpportunityToExecutionInput(opp);
+    const previewLegs = executionLegsToPreviewLegs(input.legs);
+
+    const preview = buildOrderPreview({
+      opportunityId: opp.id,
+      symbol: opp.symbol,
+      base: opp.base,
+      quote: opp.quote,
+      opportunityType: (opp.opportunityType === "CrossExchange" ? "cross-exchange" : opp.opportunityType === "SpotPerp" ? "spot-perp" : opp.opportunityType === "Basis" ? "basis" : "unknown") as any,
+      strategyName,
+      legs: previewLegs,
+      estimatedFees: estimate.fees,
+      estimatedSlippage: estimate.slippage,
+      estimatedNetRate: estimate.annualizedNetRate,
+      scoringResult: scoreResult,
+      riskGateResult: gateResult,
+      estimateResult: estimate,
+      accountRiskContextSource: accountCtx?.source ?? "none",
+    });
+
+    setCurrentPreview(preview);
+
+    // Audit: preview created
+    createAuditEvent({
+      eventType: "order_preview_created",
+      entityType: "order_preview",
+      entityId: preview.id,
+      symbol: opp.symbol,
+      exchangeIds: [opp.primaryExchange, opp.secondaryExchange].filter(Boolean) as string[],
+      strategyName: strategyName,
+      severity: "info",
+      message: `创建订单预览 ${opp.symbol} (${opp.opportunityType})`,
+    });
+
+    // Audit: risk blocked
+    if (!gateResult.allowed) {
+      createAuditEvent({
+        eventType: "risk_blocked",
+        entityType: "risk_gate",
+        entityId: opp.id,
+        symbol: opp.symbol,
+        exchangeIds: [opp.primaryExchange, opp.secondaryExchange].filter(Boolean) as string[],
+        strategyName: strategyName,
+        severity: "blocked",
+        message: `风控拦截: ${gateResult.reasonCodes[0] ?? "未知原因"}`,
+        metadata: { score: scoreResult.score, riskLevel: scoreResult.riskLevel },
+      });
+      createLocalNotification({
+        type: "risk",
+        severity: "blocked",
+        title: "风控拦截",
+        message: `${opp.symbol}: ${gateResult.reasonCodes[0] ?? "未知原因"}`,
+        entityType: "risk_gate",
+        entityId: opp.id,
+        symbol: opp.symbol,
+      });
+    }
+  }, [activeTemplate, openExecutions, accountCtx]);
+
+  // Confirm the current preview (local only — no order submitted)
+  const handleConfirmPreview = useCallback(() => {
+    if (!currentPreview) return;
+    try {
+      const record = createConfirmation({
+        preview: currentPreview,
+        riskAccepted,
+        disclaimerAccepted: discAccepted,
+      });
+      createAuditEvent({
+        eventType: "order_confirmation_created",
+        entityType: "confirmation",
+        entityId: record.id,
+        symbol: currentPreview.symbol,
+        exchangeIds: currentPreview.legs.map((l) => l.venue),
+        strategyName: currentPreview.strategyName,
+        severity: "info",
+        message: `预览确认成功 ${currentPreview.symbol}`,
+      });
+      createLocalNotification({
+        type: "confirmation",
+        severity: "info",
+        title: "预览确认成功",
+        message: `${currentPreview.symbol} — ${currentPreview.strategyName}`,
+        entityType: "confirmation",
+        entityId: record.id,
+        symbol: currentPreview.symbol,
+      });
+      setConfirmMsg(`✅ 确认成功，但未发送任何订单 (ID: ${record.id})`);
+      setLastConfirmation(record);
+      setRiskAccepted(false);
+      setDiscAccepted(false);
+    } catch (error) {
+      createAuditEvent({
+        eventType: "order_confirmation_rejected",
+        entityType: "confirmation",
+        entityId: currentPreview.id,
+        symbol: currentPreview.symbol,
+        severity: "warning",
+        message: `确认失败: ${error instanceof Error ? error.message : "未知错误"}`,
+      });
+      setConfirmMsg(`❌ 确认失败: ${error instanceof Error ? error.message : "未知错误"}`);
+    }
+  }, [currentPreview, riskAccepted, discAccepted]);
+
+  // Enqueue the last confirmation into the local execution queue
+  const handleEnqueue = useCallback(() => {
+    if (!lastConfirmation) return;
+    try {
+      const item = enqueueConfirmedPreview({ confirmation: lastConfirmation });
+      createAuditEvent({
+        eventType: "execution_queue_enqueued",
+        entityType: "execution_queue",
+        entityId: item.id,
+        symbol: lastConfirmation.symbol,
+        strategyName: lastConfirmation.strategyName,
+        severity: "info",
+        message: `已加入本地预览队列 ${lastConfirmation.symbol}`,
+      });
+      createLocalNotification({
+        type: "queue",
+        severity: "info",
+        title: "已加入执行队列",
+        message: `${lastConfirmation.symbol} — ${lastConfirmation.strategyName}`,
+        entityType: "execution_queue",
+        entityId: item.id,
+        symbol: lastConfirmation.symbol,
+      });
+      setConfirmMsg(`✅ 已加入本地预览队列，不会真实下单 (ID: ${item.id})`);
+      setLastConfirmation(null);
+    } catch (error) {
+      setConfirmMsg(`❌ 入队失败: ${error instanceof Error ? error.message : "未知错误"}`);
+    }
+  }, [lastConfirmation]);
+
+  // Close the preview panel and audit
+  const handleClosePreview = useCallback(() => {
+    if (currentPreview) {
+      createAuditEvent({
+        eventType: "order_preview_closed",
+        entityType: "order_preview",
+        entityId: currentPreview.id,
+        symbol: currentPreview.symbol,
+        severity: "info",
+        message: `关闭订单预览 ${currentPreview.symbol}`,
+      });
+    }
+    setCurrentPreview(null);
+    setConfirmMsg(null);
+    setRiskAccepted(false);
+    setDiscAccepted(false);
+  }, [currentPreview]);
 
   return (
     <PageShell
@@ -224,6 +463,19 @@ export default function ExecutionPage() {
           <StatCard label="Mock 可用 USDT" value={formatUsd(accountCtx.availableUsdBalance)} tone="green" />
           <StatCard label="Mock 持仓敞口" value={formatUsd(accountCtx.totalPositionExposureUsd)} tone="yellow" />
           <StatCard label="账户风控来源" value={accountCtx.source} tone="slate" />
+        </section>
+      )}
+
+      {/* Kill Switch banner */}
+      {killSwitch && (
+        <section className="border border-rose-400/40 bg-rose-400/10 px-4 py-3 text-xs text-rose-200">
+          <p className="flex items-center gap-2 font-medium">
+            <span>🛑 Kill Switch 已启用</span>
+          </p>
+          <p className="mt-1">
+            新预览、确认和队列操作已被禁用。
+            <a className="ml-2 text-rose-100 underline hover:text-white" href="/safety">前往安全控制</a>
+          </p>
         </section>
       )}
 
@@ -359,6 +611,15 @@ export default function ExecutionPage() {
                       >
                         {alreadyOpen ? "已开仓" : gateResult.allowed ? "模拟开仓" : "拦截"}
                       </button>
+                      <button
+                        className="ml-1 h-7 border border-slate-700 bg-slate-900 px-2 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={killSwitch}
+                        onClick={() => handlePreview(opp)}
+                        title={killSwitch ? "Kill Switch 已启用 — 无法预览" : "预览订单 — 仅展示，不会下单"}
+                        type="button"
+                      >
+                        预览
+                      </button>
                     </Td>
                   </tr>
                 );
@@ -374,6 +635,140 @@ export default function ExecutionPage() {
           </table>
         </div>
       </section>
+
+      {/* Order Preview Panel */}
+      {currentPreview && (
+        <section className="border border-cyan-400/30 bg-slate-950/40">
+          <div className="flex items-center justify-between border-b border-cyan-400/30 px-4 py-3">
+            <h2 className="text-base font-semibold text-white">📋 订单预览</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-cyan-300">Preview Only — 不会下单</span>
+              <button
+                className="h-6 border border-slate-700 px-2 text-xs text-slate-400 hover:text-slate-100"
+                onClick={handleClosePreview}
+                type="button"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-3 p-4 xl:grid-cols-[2fr_1fr]">
+            {/* Left: opportunity details */}
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <PreviewStat label="币种" value={currentPreview.symbol} />
+                <PreviewStat label="类型" value={currentPreview.opportunityType} />
+                <PreviewStat label="策略" value={currentPreview.strategyName} />
+                <PreviewStat label="来源" value={currentPreview.accountRiskContextSource === "mock" ? "Mock 账户" : currentPreview.accountRiskContextSource} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <PreviewStat label="评分" value={`${currentPreview.scoringResult.score} / ${currentPreview.scoringResult.grade}`} tone="green" />
+                <PreviewStat label="净年化" value={`${currentPreview.estimatedNetRate.toFixed(2)}%`} tone={currentPreview.estimatedNetRate >= 0 ? "green" : "red"} />
+                <PreviewStat label="手续费" value={`$${currentPreview.estimatedFees.toFixed(2)}`} tone="slate" />
+                <PreviewStat label="滑点" value={`$${currentPreview.estimatedSlippage.toFixed(2)}`} tone="slate" />
+              </div>
+
+              {/* Preview legs */}
+              <section>
+                <p className="mb-1 font-medium text-slate-400">执行腿</p>
+                <table className="w-full border-collapse text-left">
+                  <thead className="text-slate-500">
+                    <tr>
+                      <th className="px-2 py-1">交易所</th>
+                      <th className="px-2 py-1">类型</th>
+                      <th className="px-2 py-1">方向</th>
+                      <th className="px-2 py-1 text-right">名义本金</th>
+                      <th className="px-2 py-1 text-right">仅减仓</th>
+                      <th className="px-2 py-1">订单类型</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentPreview.legs.map((leg, i) => (
+                      <tr className="border-t border-slate-800" key={i}>
+                        <td className="px-2 py-1 text-slate-200"><ExchangeBadge label={leg.venue} /></td>
+                        <td className="px-2 py-1 text-slate-300">{leg.marketType}</td>
+                        <td className="px-2 py-1 text-slate-300">{leg.side}</td>
+                        <td className="px-2 py-1 text-right tabular-nums text-slate-200">{formatUsd(leg.notionalUsd)}</td>
+                        <td className="px-2 py-1 text-right tabular-nums text-slate-300">{leg.reduceOnly ? "是" : "否"}</td>
+                        <td className="px-2 py-1 text-slate-300">{leg.orderType}{leg.status === "preview-only" ? " (预览)" : ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            </div>
+
+            {/* Right: warnings, confirmation checkboxes, and confirm button */}
+            <div className="space-y-2">
+              <div className="border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs">
+                <p className="font-medium text-amber-200">
+                  {currentPreview.submittable ? "✅ 可通过风控" : "❌ 风控未通过 — 不可提交"}
+                </p>
+                {currentPreview.warnings.length > 0 && (
+                  <ul className="mt-1 space-y-1">
+                    {currentPreview.warnings.map((w, i) => (
+                      <li className="text-amber-100/80" key={i}>{w}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Confirmation section */}
+              {confirmMsg ? (
+                <div className="space-y-2">
+                  <div className="rounded border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
+                    {confirmMsg}
+                  </div>
+                  {lastConfirmation && !killSwitch && (
+                    <button
+                      className="inline-flex h-8 w-full items-center justify-center border border-cyan-400/50 bg-cyan-400/10 px-3 text-xs font-medium text-cyan-200 hover:bg-cyan-400/20"
+                      onClick={handleEnqueue}
+                      type="button"
+                    >
+                      加入本地队列 →
+                    </button>
+                  )}
+                  {lastConfirmation && killSwitch && (
+                    <div className="rounded border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
+                      Kill Switch 已启用 — 无法加入队列
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 text-xs text-slate-300">
+                    <input
+                      checked={riskAccepted}
+                      className="mt-0.5 h-4 w-4 accent-cyan-400"
+                      type="checkbox"
+                      onChange={(e) => setRiskAccepted(e.target.checked)}
+                    />
+                    <span>我已了解相关风险，确认此套利机会的风险评估结果</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-xs text-slate-300">
+                    <input
+                      checked={discAccepted}
+                      className="mt-0.5 h-4 w-4 accent-cyan-400"
+                      type="checkbox"
+                      onChange={(e) => setDiscAccepted(e.target.checked)}
+                    />
+                    <span>我理解这<strong className="text-amber-300">不会</strong>真实下单，本次仅为预览确认记录</span>
+                  </label>
+                  <button
+                    className="mt-1 inline-flex h-8 w-full items-center justify-center border border-emerald-400/50 bg-emerald-400/10 px-3 text-xs font-medium text-emerald-200 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={!riskAccepted || !discAccepted || !currentPreview.submittable || killSwitch}
+                    onClick={handleConfirmPreview}
+                    title={killSwitch ? "Kill Switch 已启用 — 无法确认" : ""}
+                    type="button"
+                  >
+                    确认预览 {currentPreview.submittable ? "" : "(风控未通过)"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Current paper executions */}
       <section className="border border-slate-800 bg-slate-950/40">
@@ -584,6 +979,16 @@ function RiskLevelBadge({ level }: { level: string }) {
     high: "高",
   };
   return <span className={`border px-2 py-0.5 text-xs ${colors[level] ?? colors.low}`}>{labels[level] ?? level}</span>;
+}
+
+function PreviewStat({ label, tone = "slate", value }: { label: string; tone?: string; value: string }) {
+  const colorMap: Record<string, string> = { slate: "text-slate-100", green: "text-emerald-300", red: "text-rose-300" };
+  return (
+    <div className="border border-slate-800 bg-slate-950/60 px-3 py-2">
+      <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-0.5 text-sm font-semibold tabular-nums ${colorMap[tone] ?? "text-slate-100"}`}>{value}</p>
+    </div>
+  );
 }
 
 function formatTime(value?: number | null) {

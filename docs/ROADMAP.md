@@ -1,7 +1,7 @@
 # Roadmap — 资金费率套利平台长期路线图
 
 本路线图定义了项目从只读看板逐步演进为全功能套利平台的阶段性计划。
-**当前项目处于 Phase 3（API Key 管理与 Mock 账户基础设施）已完成 — 下一阶段 Phase 4 半自动交易。** 每个阶段都设置了明确的边界和前置条件，
+**当前项目处于 Phase 4（半自动交易）已完成 — 下一阶段 Phase 5（实盘自动交易设计）。** 每个阶段都设置了明确的边界和前置条件，
 不能跳过中间阶段直接进入自动交易。
 
 ---
@@ -187,42 +187,52 @@
 - `tests/phase3Boundary.test.ts` — 13 项边界测试（无下单/无交易/无 withdraw/middleware 安全/Mock 标注）
 - 边界测试覆盖：placeOrder / createOrder / marketOrder / TradingAdapter / withdraw / middleware 白名单 / API Key 页面 disabled / Mock source / permissionVerifier mock 标记
 
-### Phase 4 — 半自动交易（用户逐笔确认）（⬆ Next 下一阶段）
+### Phase 4 — 半自动交易（用户逐笔确认）（✅ 已完成）
 
-> **状态：规划中**
+> **状态：✅ 全部完成（Phase 4.1 – 4.8），下一阶段 Phase 5**
 > **阶段命名：Semi-Automated Trading**
 
-### 包含
-- 系统根据信号生成交易建议
-- 用户必须在 UI 上手动确认后，系统才向交易所发送订单
-- 订单执行状态实时反馈
-- 风控规则自动拦截超阈值订单
-- 所有交易前需通过风险规则校验
+#### 包含
+- Order Preview（`lib/orders/orderPreviewBuilder.ts`）
+- User Confirmation（`lib/orders/orderConfirmationStore.ts`）
+- Execution Audit（`lib/audit/auditStore.ts`）
+- Local Execution Queue（`lib/orders/executionQueueStore.ts`）
+- Kill Switch / Safety Controls（`lib/safety/safetyStore.ts`）
+- Local Notification（`lib/notifications/localNotificationStore.ts`）
+- Queue Recovery / Expiration（`lib/orders/executionQueueRecovery.ts`）
+- Phase 4 收口验收 + 边界测试
 
-### 不包含
-- ✗ 自动执行（无用户确认不下单）
-- ✗ 策略自动开平仓
-- ✗ 批量/高频交易
-- ✗ 无风控门槛的订单
+#### 半自动交易链路
+```
+Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Queue → Audit → Notification → Safety
+```
 
-### 风险边界
-- 每笔订单必须用户手动确认
-- 风控规则必须通过才能提交订单
-- 每笔订单有金额/数量上限
-- 日交易量有硬上限
-- 用户可随时一键暂停所有交易
+#### 不包含
+- ✗ 真实下单 — 无 submitOrder / placeOrder / createOrder / marketOrder 实现
+- ✗ 交易所私有接口连接 — 无 PrivateAccountAdapter live 实现
+- ✗ 外部通知 — 无 Telegram / Email / Webhook
+- ✗ 队列自动执行 — 所有操作需用户手动触发
 
-### 前置条件
-- ✅ Phase 3 API Key 管理稳定运行
-- ✅ 风控引擎集成测试通过
-- ✅ 有监控告警和人工干预通道
+#### 风险边界
+- 所有按钮受 Kill Switch 控制
+- 预览标记 Preview Only
+- 确认需勾选风险 + 免责声明
+- 队列仅本地存储，不发送交易所
+
+#### 前置条件
+- ✅ Phase 2 Paper Trading 闭环
+- ✅ Phase 3 API Key Mock 基础设施
+- ✅ Phase 4 半自动交易链路完整
 
 ---
 
 ## Phase 5 — 实盘自动交易（完整风控）
 
-> **状态：远期规划**
+> **状态：设计阶段 — 阻塞于 Live Adapter Design + Sandbox/Testnet**
 > **阶段命名：Fully Automated Trading**
+
+> **⚠ 进入 Phase 5 前必须完成：Live Adapter Design 文档 + 至少一个交易所的沙盒/测试网接入。**
+> **⚠ Phase 5 不允许直接在主网实现下单代码 — 必须先通过沙盒验证。**
 
 ### 包含
 - 策略可设置为自动执行模式
@@ -245,10 +255,12 @@
 - 用户可随时接管为手动模式
 
 ### 前置条件
-- ✅ Phase 4 半自动交易稳定运行 3 个月以上
-- ✅ 风控引擎实战验证
-- ✅ 完整审计系统和告警系统
-- ✅ 法律合规审查
+- ✅ Phase 4 半自动交易链路完整（已满足）
+- ⏳ Live Adapter Design（待完成）
+- ⏳ Sandbox/Testnet 环境可用（待完成）
+- ⏳ TradingAdapter 接口设计评审（待完成）
+- ⏳ Phase 5 安全审查（待完成）
+- ⏳ 法律合规审查（待完成）
 
 ---
 
@@ -298,7 +310,7 @@
 | 1 | 只读看板 | — | ✅ 已完成 |
 | 2 | 纸上交易 | Phase 1 稳定 | ✅ 已完成 |
 | 3 | API Key 管理 | Phase 2 + LIVE_TRADING_ARCHITECTURE.md | ✅ 已完成 |
-| 4 | 半自动交易 | Phase 3 验收完成 | 下一阶段 |
-| 5 | 全自动交易 | Phase 4 + 合规审查 | TBD |
+| 4 | 半自动交易 | Phase 3 验收完成 | ✅ 已完成 |
+| 5 | 全自动交易 | Phase 4 + Live Adapter Design + Sandbox | TBD（设计阶段） |
 
 > **注意**：以上时间线为初步预估，每个阶段的推进需要前一个阶段验证通过和安全审查通过后，经项目决策确认方可进入下一阶段。

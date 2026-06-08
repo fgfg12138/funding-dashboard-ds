@@ -177,10 +177,11 @@
   - withdraw 仅出现在类型定义中
   - 无 POST /api/keys 端点
 
-### Phase 4 — 半自动交易（用户逐笔确认）（⬆ Next）
+### Phase 4 — 半自动交易（用户逐笔确认）（✅ 已完成）
 
-> **Phase 3 已完成。下一阶段是半自动交易，不是全自动交易。**
-> **全自动交易 (Phase 5) 前必须先完成半自动交易 (Phase 4)。**
+> **Phase 4 已完成 — 8 个子阶段（4.1 – 4.8）。详见 [PHASE_4_CLOSURE_CHECKLIST.md](./PHASE_4_CLOSURE_CHECKLIST.md)。**
+> **Phase 4 确认项目仍无 submitOrder / placeOrder / live trading adapter 实现。**
+> **下一阶段是 Phase 5 实盘自动交易设计，但必须先完成 Live Adapter Design + Sandbox/Testnet。**
 
 ### API Key 加密存储方案
 
