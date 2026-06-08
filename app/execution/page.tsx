@@ -186,6 +186,7 @@ export default function ExecutionPage() {
 
   // Open a paper execution via engine + store
   const handleOpen = useCallback((opp: UnifiedOpportunity) => {
+    if (killSwitch) return; // Kill Switch prevents all new executions
     const execution = createPaperExecutionFromOpportunity(opp);
     createPaperExecution(execution);
     createAuditEvent({
@@ -604,9 +605,9 @@ export default function ExecutionPage() {
                     <Td align="right">
                       <button
                         className="h-7 border border-cyan-400/50 bg-cyan-400/10 px-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={!allowedToOpen}
+                        disabled={!allowedToOpen || killSwitch}
                         onClick={() => handleOpen(opp)}
-                        title={!gateResult.allowed ? gateResult.reasonCodes[0] : alreadyOpen ? "已开仓" : "模拟开仓"}
+                        title={killSwitch ? "Kill Switch 已启用 — 无法开仓" : !gateResult.allowed ? gateResult.reasonCodes[0] : alreadyOpen ? "已开仓" : "模拟开仓"}
                         type="button"
                       >
                         {alreadyOpen ? "已开仓" : gateResult.allowed ? "模拟开仓" : "拦截"}

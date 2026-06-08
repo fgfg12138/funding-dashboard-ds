@@ -145,5 +145,11 @@ describe("accountRiskContext", () => {
       expect(buildAccountRiskContext(allSnaps).source).toBe("mock");
       expect(buildAccountRiskContext([]).source).toBe("mock");
     });
+
+    it("warns when snapshot source is not mock", () => {
+      const liveSnap = { ...binanceSnap, source: "live" as const };
+      const ctx = buildAccountRiskContext([liveSnap]);
+      expect(ctx.warnings.some((w) => w.includes("不是 Mock"))).toBe(true);
+    });
   });
 });

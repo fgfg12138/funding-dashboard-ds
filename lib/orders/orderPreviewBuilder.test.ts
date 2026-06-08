@@ -153,7 +153,7 @@ describe("buildOrderPreview", () => {
 });
 
 describe("executionLegToPreviewLeg", () => {
-  it("converts a short perp leg correctly", () => {
+  it("converts a short perp leg with reduceOnly=false (preview only)", () => {
     const leg: ExecutionLeg = {
       id: "leg-x", venue: "Binance", marketType: "perp", side: "short",
       symbol: "BTC/USDT", notionalUsd: 1000, estimatedEntryPrice: 68_000,
@@ -162,7 +162,7 @@ describe("executionLegToPreviewLeg", () => {
     const previewLeg = executionLegToPreviewLeg(leg);
     expect(previewLeg.venue).toBe("Binance");
     expect(previewLeg.side).toBe("short");
-    expect(previewLeg.reduceOnly).toBe(true);
+    expect(previewLeg.reduceOnly).toBe(false); // preview opening legs are not reduce-only
     expect(previewLeg.orderType).toBe("market");
     expect(previewLeg.status).toBe("preview-only");
   });

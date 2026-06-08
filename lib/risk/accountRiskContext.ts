@@ -39,6 +39,12 @@ export function buildAccountRiskContext(
     warnings.push("无账户快照数据");
   }
 
+  // Validate snapshot sources — Phase 3.6 only accepts "mock"
+  const nonMockSource = snapshots.find((s) => s.source !== "mock");
+  if (nonMockSource) {
+    warnings.push(`账户快照来源 "${nonMockSource.source}" 不是 Mock — 当前仅接受 Mock 数据`);
+  }
+
   const totalUsdValue = calculateAccountTotalUsd(snapshots);
   const availableUsdBalance = calculateAvailableUsdBalance(snapshots);
   const totalPositionExposureUsd = calculateAccountOpenPositionExposure(snapshots);

@@ -35,7 +35,7 @@ export function executionLegToPreviewLeg(leg: ExecutionLeg): OrderPreviewLeg {
     symbol: leg.symbol,
     notionalUsd: leg.notionalUsd,
     estimatedEntryPrice: leg.estimatedEntryPrice,
-    reduceOnly: leg.side === "short",
+    reduceOnly: false,
     orderType: "market",
     status: "preview-only",
   };
