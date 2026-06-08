@@ -408,7 +408,23 @@
 - `buildGuardedBlockedResponseWithRateLimit` 在每个请求周期中创建 2-4 个审计事件
 - 仍返回 403
 
-### Phase 5.15+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.15 ✅ — Testnet Route Skeleton Closure（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `docs/PHASE_5_TESTNET_ROUTE_SKELETON_CLOSURE.md` | 收口验收文档 |
+| `tests/phase5TestnetRouteSkeletonClosure.test.ts` | 54 个边界测试 |
+
+#### Closure 验证结果
+- 所有 4 个 route 文件存在并引用 shared helper
+- 无 fetch/axios/decryptSecret/HMAC/adapter/apiKeyStore
+- Shared helper 从不返回 `success:true`
+- Middleware 白名单不含 `/api/testnet`
+- 各 Store 不存储 Secret/API Key
+- 文档声明 no-real-testnet / no-signing / no-secret-decryption
+
+### Phase 5.16+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

@@ -636,3 +636,56 @@ const ALLOWED_TESTNET_PREFIXES = [
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 23. Phase 5.15 — Testnet Route Skeleton Closure（已完成）
+
+> **⚠ 收口验收文档确认所有 skeleton 模块已完成。**
+> **所有 route 仍返回 403 blocked。无真实请求、无签名、无解密。**
+
+### 23.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/PHASE_5_TESTNET_ROUTE_SKELETON_CLOSURE.md` | 收口验收文档 |
+| `tests/phase5TestnetRouteSkeletonClosure.test.ts` | 54 个边界测试 |
+
+### 23.2 Skeleton 链路
+
+```
+request → shared blockedResponse → guard → idempotency → rate limit → audit → 403
+```
+
+### 23.3 收口模块汇总
+
+| 模块 | Phase | 状态 |
+|------|-------|------|
+| Route Handler Skeleton | 5.9 | ✅ |
+| Security Guard | 5.10 | ✅ |
+| Guard Integration | 5.11 | ✅ |
+| Idempotency Store | 5.12 | ✅ |
+| Rate Limit Store | 5.13 | ✅ |
+| Audit Store | 5.14 | ✅ |
+| Closure & Boundary | 5.15 | ✅ |
+
+### 23.4 边界证明
+
+| 边界 | 状态 | 证据 |
+|------|------|------|
+| No-Real-Testnet | ✅ | 所有 route 返回 403，无 fetch/axios |
+| No-Signing | ✅ | 无 createHmac/crypto.subtle.sign |
+| No-Secret-Decryption | ✅ | 无 decryptSecret/importMasterKey |
+| No-Middleware-Whitelist | ✅ | middleware.ts 不含 /api/testnet |
+| 不存储 Secret/API Key | ✅ | Store 仅存 primitives |
+
+### 23.5 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Closure 文档 | ✅ |
+| 边界测试 | ✅（54 个） |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

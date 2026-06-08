@@ -583,13 +583,42 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ 真实下单（不在审计中记录交易数据）
 - ✗ middleware 白名单修改
 
-### Phase 5.15+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.15 — Testnet Route Skeleton Closure（✅ 已完成）
+
+#### 包含
+- `docs/PHASE_5_TESTNET_ROUTE_SKELETON_CLOSURE.md` — 收口验收文档
+- `tests/phase5TestnetRouteSkeletonClosure.test.ts` — 54 个边界测试
+
+#### Skeleton 链路
+```
+request → shared blockedResponse → guard → idempotency → rate limit → audit → 403
+```
+
+#### 收口模块汇总
+| 模块 | Phase | 状态 |
+|------|-------|------|
+| Route Handler Skeleton | 5.9 | ✅ |
+| Security Guard | 5.10 | ✅ |
+| Guard Integration | 5.11 | ✅ |
+| Idempotency Store | 5.12 | ✅ |
+| Rate Limit Store | 5.13 | ✅ |
+| Audit Store | 5.14 | ✅ |
+| Closure & Boundary | 5.15 | ✅ |
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+
+### Phase 5.16+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.14 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store 链路完整
+- ✅ Phase 5.0–5.15 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
