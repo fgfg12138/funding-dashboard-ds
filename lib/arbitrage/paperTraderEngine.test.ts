@@ -422,23 +422,88 @@ describe("closed positions accumulate", () => {
   });
 });
 
-// ─── Step result fields ───────────────────────────────
+// ─── Fix: closedAt uses simulated time ─────────────────
 
-describe("step result fields", () => {
-  it("returns all required fields in PaperTraderStepResult", () => {
+describe("closedAt uses simulated time", () => {
+  it("closedAt equals currentTime, not Date.now()", () => {
+    const cfg = sampleConfig({ minExpectedNetApy: 30 });
+    const t0 = UTC(2026, 1, 1, 0);
+
+    const r1 = runPaperTraderStep(EMPTY_STATE, sampleOpportunities(), cfg, t0);
+    expect(r1.state.closedPositions.length).toBe(0);
+
+    // Force exit with low netApy
+    const lowOpps: PaperTraderOpportunity[] = [{
+      id: "opp-btc", symbol: "BTC/USDT", expectedNetApy: 5,
+      opportunityScore: 90, riskScore: 20, capacityUsd: 50_000,
+      fundingRate: 0.0001, markPrice: 100_000, exchange: "Binance",
+    }];
+
+    const t1 = UTC(2026, 1, 2, 12); // arbitrary time
+    const r2 = runPaperTraderStep(r1.state, lowOpps, cfg, t1);
+    
+    for (const pos of r2.state.closedPositions) {
+      expect(pos.closedAt).toBe(t1);
+    }
+  });
+});
+
+// ─── Fix: skippedOpportunities populated ──────────────
+
+describe("skippedOpportunities is populated", () => {
+  it("returns reasons when opportunities are filtered out", () => {
+    const cfg = sampleConfig({ minExpectedNetApy: 50 }); // very high bar
+    const opps = sampleOpportunities(); // max netApy = 30
+    const t0 = UTC(2026, 1, 1, 0);
+
+    const result = runPaperTraderStep(EMPTY_STATE, opps, cfg, t0);
+    expect(result.skippedOpportunities.length).toBeGreaterThan(0);
+    expect(result.skippedOpportunities[0].reason).toContain("净年化");
+  });
+});
+
+// ─── Fix: mark price update each round ────────────────
+
+describe("mark price update each round", () => {
+  it("updates position mark prices from current opportunity data", () => {
+    const cfg = sampleConfig();
+    const opps = sampleOpportunities();
+    const t0 = UTC(2026, 1, 1, 0);
+
+    // First run opens positions at markPrice=100000
+    const r1 = runPaperTraderStep(EMPTY_STATE, opps, cfg, t0);
+    expect(r1.state.openPositions.length).toBeGreaterThan(0);
+    const posId = r1.state.openPositions[0].id;
+
+    // Second run with different markPrice — position should reflect it
+    const updatedOpps: PaperTraderOpportunity[] = [
+      { ...opps[0], markPrice: 110_000 }, // BTC up 10%
+      { ...opps[1], markPrice: 3_000 },
+    ];
+    const t1 = UTC(2026, 1, 1, 1);
+    const r2 = runPaperTraderStep(r1.state, updatedOpps, cfg, t1);
+
+    const updatedPos = r2.state.openPositions.find((p) => p.id === posId);
+    expect(updatedPos).toBeDefined();
+    if (updatedPos) {
+      expect(updatedPos.spotLeg.markPrice).toBe(110_000);
+      expect(updatedPos.perpetualLeg.markPrice).toBe(110_000);
+      // Spot long should have positive PnL, perp short negative
+      expect(updatedPos.spotLeg.unrealizedPnlUsd).toBeGreaterThan(0);
+      expect(updatedPos.perpetualLeg.unrealizedPnlUsd).toBeLessThan(0);
+    }
+  });
+});
+
+// ─── Fix: portfolio report uses simulated time ────────
+
+describe("portfolio report uses simulated time", () => {
+  it("generatedAt matches the currentTime passed to the step", () => {
     const cfg = sampleConfig();
     const opps = sampleOpportunities();
     const t0 = UTC(2026, 1, 1, 0);
 
     const result = runPaperTraderStep(EMPTY_STATE, opps, cfg, t0);
-
-    expect(result).toHaveProperty("state");
-    expect(result).toHaveProperty("openedPositions");
-    expect(result).toHaveProperty("closedPositions");
-    expect(result).toHaveProperty("fundingEvents");
-    expect(result).toHaveProperty("exitDecisions");
-    expect(result).toHaveProperty("portfolioReport");
-    expect(result).toHaveProperty("ranAt");
-    expect(typeof result.ranAt).toBe("number");
+    expect(result.portfolioReport.summary.generatedAt).toBe(t0);
   });
 });

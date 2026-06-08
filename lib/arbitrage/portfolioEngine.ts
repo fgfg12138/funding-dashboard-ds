@@ -116,10 +116,11 @@ export function calculatePositionContribution(
 export function calculatePortfolioSummary(
   inputs: PortfolioPositionInput[],
   config: PortfolioEngineConfig,
+  generatedAt?: number,
 ): PortfolioSummary {
   const annualizationHours = config.annualizationHours ?? DEFAULT_ANNUALIZATION_HOURS;
   const includeClosed = config.includeClosedPositions ?? DEFAULT_INCLUDE_CLOSED;
-  const now = Date.now();
+  const now = generatedAt ?? Date.now();
 
   const filtered = includeClosed
     ? inputs
@@ -191,8 +192,9 @@ export function calculatePortfolioSummary(
 export function calculatePortfolioReport(
   inputs: PortfolioPositionInput[],
   config: PortfolioEngineConfig,
+  generatedAt?: number,
 ): PortfolioReport {
-  const summary = calculatePortfolioSummary(inputs, config);
+  const summary = calculatePortfolioSummary(inputs, config, generatedAt);
   const includeClosed = config.includeClosedPositions ?? DEFAULT_INCLUDE_CLOSED;
 
   const filtered = includeClosed
