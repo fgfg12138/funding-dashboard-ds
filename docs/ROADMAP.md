@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.10 已完成。Phase 6.11 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.11 已完成。Phase 6.12 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1299,9 +1299,35 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-#### Phase 6.11+ — 后续阶段（BLOCKED — 等待明确批准）
+#### Phase 6.11 — Persistent Audit SQLite Schema Design（✅ 已完成 — Design Only）
 
-> **⚠ Phase 6.11 只能继续处理 audit blocker 或选择其他 blocker。**
+##### 包含
+- `docs/PERSISTENT_AUDIT_SQLITE_SCHEMA_DESIGN.md` — 3.1 KB schema design 文档
+- `lib/audit/persistentAuditSqliteSchema.ts` — 6 个纯函数
+- `lib/audit/persistentAuditSqliteSchema.test.ts` — 42 个测试
+
+##### SQLite Schema
+| 表 | 列数 | 说明 |
+|----|------|------|
+| `audit_events` | 12 | 审计事件主表 |
+| `audit_event_metadata` | 4 | 事件元数据（无敏感字段） |
+| `audit_integrity_checks` | 6 | 完整性校验链 |
+
+##### Migration Plan
+- Version 1: `create_persistent_audit_tables` — 3 条 CREATE TABLE 语句
+- 纯 SQL 字符串，不执行，不写文件
+
+##### 不包含
+- ✗ 数据库连接 (sqlite/better-sqlite3)
+- ✗ ORM 导入 (prisma)
+- ✗ 文件写入 (fs)
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+- ✗ 处理其他 blocker
+
+#### Phase 6.12+ — 后续阶段（BLOCKED — 等待明确批准）
 
 ---
 
