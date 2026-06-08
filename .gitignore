@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.data/
+*.log
+.env
+.env.local
+.DS_Store
+dist/
+build/
+.codegraph/
+.reasonix/
