@@ -505,13 +505,50 @@ Opportunity → Scoring → Estimate → RiskGate → Preview → Confirm → Qu
 - ✗ middleware 白名单修改
 - ✗ crypto hash（使用简单整数 hash）
 
-### Phase 5.13+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.13 — Testnet Rate Limit Store Skeleton（✅ 已完成）
+
+#### 包含
+- `lib/liveAdapters/testnetRateLimitTypes.ts` — 限流类型
+- `lib/liveAdapters/testnetRateLimitStore.ts` — In-memory 限流存储
+- `lib/liveAdapters/testnetRateLimitStore.test.ts` — 24 个测试
+- `app/api/testnet/_shared/blockedResponse.ts` — 新增 `buildGuardedBlockedResponseWithRateLimit`
+
+#### 默认限流策略
+| 范围 | 最大请求 | 窗口 |
+|------|---------|------|
+| Exchange（按交易所） | 10 req | 1s |
+| Route（按路由） | 30 req | 60s |
+| Session（按会话） | 60 req | 60s |
+
+#### Store 方法
+| 方法 | 说明 |
+|------|------|
+| `getDefaultRateLimitPolicies()` | 返回默认策略配置 |
+| `buildRateLimitKey(scope, route, exchange, sessionId?)` | 确定性的 scope key |
+| `checkRateLimit(input)` | 检查是否超限（不计数） |
+| `incrementRateLimit(input)` | 计数并返回检查结果 |
+| `resetRateLimit(scopeKey)` | 重置指定 scope 的计数 |
+| `listRateLimitRecords()` | 列出所有记录 |
+| `clearRateLimitRecords()` | 清空所有记录 |
+
+#### 集成
+- `buildGuardedBlockedResponseWithRateLimit` 调用限流 + 幂等 + guard，仍返回 403
+- 响应体包含 `rateLimit` 数组（3 个 scope 的当前计数和限制）
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+
+### Phase 5.14+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.12 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store 链路完整
+- ✅ Phase 5.0–5.13 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

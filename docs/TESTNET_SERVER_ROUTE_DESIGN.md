@@ -356,7 +356,35 @@
 - `buildGuardedBlockedResponseWithIdempotency` 调用 store 但仍返回 403
 - 默认 idempotencyKey: `skeleton-disabled`
 
-### Phase 5.13+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.13 ✅ — Testnet Rate Limit Store Skeleton（已完成）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRateLimitTypes.ts` | 限流类型 |
+| `lib/liveAdapters/testnetRateLimitStore.ts` | In-memory 限流存储 |
+| `lib/liveAdapters/testnetRateLimitStore.test.ts` | 24 个测试 |
+
+#### 默认策略
+| 范围 | maxRequests | windowSeconds |
+|------|------------|---------------|
+| exchange | 10 | 1s |
+| route | 30 | 60s |
+| session | 60 | 60s |
+
+#### Store 方法
+- `getDefaultRateLimitPolicies()` — 返回默认策略
+- `buildRateLimitKey(scope, route, exchange, sessionId?)` — scope key
+- `checkRateLimit(input)` — 检查不计数
+- `incrementRateLimit(input)` — 计数并返回结果
+- `resetRateLimit(scopeKey)` — 重置计数
+- `listRateLimitRecords()` / `clearRateLimitRecords()`
+
+#### 集成
+- `buildGuardedBlockedResponseWithRateLimit` 调用 guard + 幂等 + 限流，仍返回 403
+- 响应体包含 `rateLimit` 元数据
+
+### Phase 5.14+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

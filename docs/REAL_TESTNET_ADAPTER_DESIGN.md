@@ -529,3 +529,57 @@ const ALLOWED_TESTNET_PREFIXES = [
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 21. Phase 5.13 — Testnet Rate Limit Store Skeleton（已完成）
+
+> **⚠ 限流 skeleton 不存储真实 Secret 或订单数据。**
+> **不解密 Secret、不签名、不发网络请求。**
+
+### 21.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetRateLimitTypes.ts` | 限流类型 |
+| `lib/liveAdapters/testnetRateLimitStore.ts` | In-memory 限流存储 |
+| `lib/liveAdapters/testnetRateLimitStore.test.ts` | 24 个测试 |
+
+### 21.2 默认限流策略
+
+| 范围 | 最大请求 | 窗口 |
+|------|---------|------|
+| Exchange | 10 req | 1s |
+| Route | 30 req | 60s |
+| Session | 60 req | 60s |
+
+### 21.3 Store 方法
+
+| 方法 | 说明 |
+|------|------|
+| `getDefaultRateLimitPolicies()` | 返回默认策略配置 |
+| `buildRateLimitKey(scope, route, exchange, sessionId?)` | 生成 scope key |
+| `checkRateLimit(input)` | 检查是否超限（不计数） |
+| `incrementRateLimit(input)` | 计数并返回结果 |
+| `resetRateLimit(scopeKey)` | 重置指定 scope 计数 |
+| `listRateLimitRecords()` | 列出所有记录 |
+| `clearRateLimitRecords()` | 清空所有记录 |
+
+### 21.4 集成
+
+- `blockedResponse.ts` 新增 `buildGuardedBlockedResponseWithRateLimit`
+- 调用 guard + 幂等 + 限流（check + increment）
+- 响应体包含 `rateLimit` 数组（3 个 scope 的当前计数和限制）
+- 仍返回 403
+
+### 21.5 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Rate Limit 类型定义 | ✅ |
+| In-memory store 实现 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
