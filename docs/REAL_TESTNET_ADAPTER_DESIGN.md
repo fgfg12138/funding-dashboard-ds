@@ -766,3 +766,46 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 26. Phase 5.18 — Testnet Secret Access Policy Design（Policy Only）
+
+> **⚠ 纯策略设计 — 不读取、不解密、不签名任何 Secret。**
+
+### 26.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetSecretPolicyTypes.ts` | 策略类型 |
+| `lib/liveAdapters/testnetSecretPolicy.ts` | 策略评估纯函数 |
+| `lib/liveAdapters/testnetSecretPolicy.test.ts` | 12 个测试 |
+
+### 26.2 策略规则
+
+| # | 条件 | reasonCode |
+|---|------|-----------|
+| 1 | `envValidation.valid !== true` | ENV_VALIDATION_FAILED |
+| 2 | `exchangeEnv !== "testnet"` | EXCHANGE_ENV_NOT_TESTNET |
+| 3 | `testnetRoutesEnabled !== true` | TESTNET_ROUTES_DISABLED |
+| 4 | `testnetOrderSubmitEnabled === true` | ORDER_SUBMIT_ENABLED_IN_PHASE_5_18 |
+| 5 | `guardResult.allowed !== true` | GUARD_REJECTED |
+| 6 | 全部通过 | PHASE_5_18_SECRET_ACCESS_BLOCKED |
+
+### 26.3 集成
+
+- `blockedResponse.ts` 调用 `evaluateTestnetSecretAccessPolicy`
+- 响应体新增 `secretPolicy` 字段：`{ allowedToRequestSecret, severity, reasonCodes, source }`
+- `source` 始终 `testnet-secret-policy-skeleton`
+
+### 26.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| 策略类型定义 | ✅ |
+| 策略评估纯函数 | ✅ |
+| 集成到 blockedResponse | ✅（仍返回 403） |
+| 真实 Secret 访问 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |

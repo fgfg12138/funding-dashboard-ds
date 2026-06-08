@@ -11,6 +11,7 @@ import { createIdempotencyRecord } from "@/lib/liveAdapters/testnetIdempotencySt
 import { checkRateLimit, incrementRateLimit } from "@/lib/liveAdapters/testnetRateLimitStore";
 import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapters/testnetAuditStore";
 import { parseTestnetEnvConfig, validateTestnetEnvConfig } from "@/lib/liveAdapters/testnetEnvConfig";
+import { evaluateTestnetSecretAccessPolicy } from "@/lib/liveAdapters/testnetSecretPolicy";
 import type {
   TestnetRouteName,
   TestnetRouteSecurityChecklist,
@@ -214,6 +215,16 @@ export function buildGuardedBlockedResponseWithRateLimit(
 
   const guardResult = evaluateTestnetRouteSecurity(guardInput);
 
+  // Evaluate secret access policy
+  const secretPolicy = evaluateTestnetSecretAccessPolicy({
+    exchangeId: exch,
+    envConfig,
+    envValidation,
+    guardResult,
+    routeName,
+    phase: "5.18-policy-only",
+  });
+
   // Check + increment rate limits for all 3 scopes
   const rateLimitInputs: TestnetRateLimitInput[] = [
     { scope: "exchange", routeName, exchangeId: exch },
@@ -318,6 +329,12 @@ export function buildGuardedBlockedResponseWithRateLimit(
         recordId: idempotencyResult.record.id,
       },
       env: envMeta,
+      secretPolicy: {
+        allowedToRequestSecret: secretPolicy.allowedToRequestSecret,
+        severity: secretPolicy.severity,
+        reasonCodes: secretPolicy.reasonCodes,
+        source: secretPolicy.source,
+      },
       rateLimit: rateLimitMeta,
       audit: { requestId },
       auditId: `skeleton-${Date.now()}`,

@@ -456,7 +456,29 @@
 - 即使 `env.valid=true`，仍返回 403
 - 不读取 Secret、不解密、不签名
 
-### Phase 5.18+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.18 ✅ — Testnet Secret Access Policy Design（Policy Only）
+
+#### 新增文件
+| 文件 | 说明 |
+|------|------|
+| `lib/liveAdapters/testnetSecretPolicyTypes.ts` | 策略类型 |
+| `lib/liveAdapters/testnetSecretPolicy.ts` | 策略评估纯函数 |
+| `lib/liveAdapters/testnetSecretPolicy.test.ts` | 12 个测试 |
+
+#### 策略规则（6 项）
+1. `envValidation.valid !== true` → blocked
+2. `exchangeEnv !== "testnet"` → blocked
+3. `testnetRoutesEnabled !== true` → blocked
+4. `testnetOrderSubmitEnabled === true` → blocked
+5. `guardResult.allowed !== true` → blocked
+6. 全部通过 → `PHASE_5_18_SECRET_ACCESS_BLOCKED`
+
+#### 集成
+- `blockedResponse.ts` 调用 `evaluateTestnetSecretAccessPolicy`
+- 响应体新增 `secretPolicy` 字段
+- 绝不解密/签名
+
+### Phase 5.19+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

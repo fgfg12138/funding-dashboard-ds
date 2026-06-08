@@ -671,13 +671,42 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 - ✗ 真实下单
 - ✗ middleware 白名单修改
 
-### Phase 5.18+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.18 — Testnet Secret Access Policy Design（✅ 已完成 — Policy Only）
+
+#### 包含
+- `lib/liveAdapters/testnetSecretPolicyTypes.ts` — 策略类型
+- `lib/liveAdapters/testnetSecretPolicy.ts` — 策略评估纯函数
+- `lib/liveAdapters/testnetSecretPolicy.test.ts` — 12 个测试
+- `app/api/testnet/_shared/blockedResponse.ts` — 集成 secretPolicy 到响应体
+
+#### 策略规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | `envValidation.valid !== true` | ❌ ENV_VALIDATION_FAILED |
+| 2 | `exchangeEnv !== "testnet"` | ❌ EXCHANGE_ENV_NOT_TESTNET |
+| 3 | `testnetRoutesEnabled !== true` | ❌ TESTNET_ROUTES_DISABLED |
+| 4 | `testnetOrderSubmitEnabled === true` | ❌ ORDER_SUBMIT_ENABLED_IN_PHASE_5_18 |
+| 5 | `guardResult.allowed !== true` | ❌ GUARD_REJECTED |
+| 6 | 全部通过 | ❌ PHASE_5_18_SECRET_ACCESS_BLOCKED |
+
+- `source` 始终 `testnet-secret-policy-skeleton`
+- 响应体新增 `secretPolicy` 字段
+- **绝不调用 decryptSecret / importMasterKey / apiKeyStore**
+
+#### 不包含
+- ✗ 真实 Secret 访问
+- ✗ 解密
+- ✗ 签名
+- ✗ 真实 testnet 请求
+- ✗ middleware 修改
+
+### Phase 5.19+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.17 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration 链路完整
+- ✅ Phase 5.0–5.18 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration + Secret Policy 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现
