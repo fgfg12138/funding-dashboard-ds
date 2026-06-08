@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, Save, Square, Trash2 } from "lucide-react";
+import { Pause, Play, Save, Square, Trash2, Copy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExchangeName } from "@/lib/exchanges/types";
 import type { Strategy, StrategyStatus, StrategyType } from "@/lib/strategies/types";
@@ -33,6 +33,16 @@ type StrategyFormState = {
   minAnnualizedSpread: number;
   status: StrategyStatus;
   notes: string;
+
+  // Template fields
+  templateCategory: string;
+  maxPositionUsd: number;
+  maxCapitalUsagePercent: number;
+  minNetRate: number;
+  stopLossPercent: number;
+  takeProfitPercent: number;
+  autoCloseWhenFundingBelow: number;
+  enabledPaperTrading: boolean;
 };
 
 const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
@@ -41,6 +51,8 @@ const STATUS_ACTIONS: Array<{ label: string; status: StrategyStatus; icon: typeo
   { label: "暂停", status: "paused", icon: Pause },
   { label: "停止", status: "stopped", icon: Square }
 ];
+
+const TEMPLATE_CATEGORIES = ["funding-arbitrage", "basis-trade", "cross-exchange", "custom"];
 
 const EMPTY_FORM: StrategyFormState = {
   name: "",
@@ -56,7 +68,15 @@ const EMPTY_FORM: StrategyFormState = {
   minFundingSpread: 0.0002,
   minAnnualizedSpread: 25,
   status: "draft",
-  notes: ""
+  notes: "",
+  templateCategory: "",
+  maxPositionUsd: 10000,
+  maxCapitalUsagePercent: 20,
+  minNetRate: 5,
+  stopLossPercent: 5,
+  takeProfitPercent: 10,
+  autoCloseWhenFundingBelow: -0.01,
+  enabledPaperTrading: false,
 };
 
 export function StrategyManager() {
@@ -121,6 +141,13 @@ export function StrategyManager() {
       setForm(EMPTY_FORM);
     }
     await loadStrategies();
+  }
+
+  async function cloneStrategyAction(id: string) {
+    const response = await fetch(`/api/strategies/${encodeURIComponent(id)}/clone`, { method: "POST" }).then((res) => res.json() as Promise<ApiResponse<Strategy>>);
+    if (response.data) {
+      await loadStrategies();
+    }
   }
 
   return (
@@ -188,6 +215,45 @@ export function StrategyManager() {
             />
           </label>
 
+          {/* ── Template Section ──────────────────────────── */}
+          <div className="border-t border-slate-700/50 pt-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs font-semibold text-cyan-300">🧩 策略模板</span>
+              <span className="text-xs text-slate-500">Template Only — Will Not Place Real Orders</span>
+            </div>
+            <SelectInput
+              label="模板分类"
+              onChange={(templateCategory) => setForm((prev) => ({ ...prev, templateCategory }))}
+              options={["", ...TEMPLATE_CATEGORIES]}
+              value={form.templateCategory}
+            />
+            {form.templateCategory && (
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberInput label="最大仓位 USD" onChange={(maxPositionUsd) => setForm((prev) => ({ ...prev, maxPositionUsd }))} step="100" value={form.maxPositionUsd} />
+                  <NumberInput label="资金使用率 %" onChange={(maxCapitalUsagePercent) => setForm((prev) => ({ ...prev, maxCapitalUsagePercent }))} step="1" value={form.maxCapitalUsagePercent} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberInput label="最低净年化 %" onChange={(minNetRate) => setForm((prev) => ({ ...prev, minNetRate }))} step="0.5" value={form.minNetRate} />
+                  <NumberInput label="止损 %" onChange={(stopLossPercent) => setForm((prev) => ({ ...prev, stopLossPercent }))} step="0.5" value={form.stopLossPercent} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <NumberInput label="止盈 %" onChange={(takeProfitPercent) => setForm((prev) => ({ ...prev, takeProfitPercent }))} step="0.5" value={form.takeProfitPercent} />
+                  <NumberInput label="Funding 低于时平仓" onChange={(autoCloseWhenFundingBelow) => setForm((prev) => ({ ...prev, autoCloseWhenFundingBelow }))} step="0.001" value={form.autoCloseWhenFundingBelow} />
+                </div>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={form.enabledPaperTrading}
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-cyan-400"
+                    onChange={(event) => setForm((prev) => ({ ...prev, enabledPaperTrading: event.target.checked }))}
+                    type="checkbox"
+                  />
+                  <span className="text-xs text-slate-400">启用 Paper Trading（不影响实盘）</span>
+                </label>
+              </div>
+            )}
+          </div>
+
           <button
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded border border-cyan-400/50 bg-cyan-400/10 px-3 text-sm text-cyan-100 hover:bg-cyan-400/20"
             onClick={() => void saveStrategy()}
@@ -213,6 +279,7 @@ export function StrategyManager() {
                 <Header>币种</Header>
                 <Header>交易所组合</Header>
                 <Header>状态</Header>
+                <Header>模板</Header>
                 <Header>创建时间</Header>
                 <Header>更新时间</Header>
                 <Header>操作</Header>
@@ -230,6 +297,15 @@ export function StrategyManager() {
                   <Cell>{strategy.symbol}</Cell>
                   <Cell>{strategy.exchangePair}</Cell>
                   <Cell className={getStatusClass(strategy.status)}>{strategy.status}</Cell>
+                  <Cell>
+                    {strategy.templateCategory ? (
+                      <span className="inline-flex items-center gap-1 rounded border border-cyan-600/30 bg-cyan-900/20 px-1.5 py-0.5 text-xs text-cyan-300">
+                        🧩 Template
+                      </span>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
+                  </Cell>
                   <Cell>{new Date(strategy.createdAt).toLocaleString()}</Cell>
                   <Cell>{new Date(strategy.updatedAt).toLocaleString()}</Cell>
                   <Cell>
@@ -255,6 +331,14 @@ export function StrategyManager() {
                         type="button"
                       >
                         <Trash2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-700 text-slate-400 hover:border-cyan-400 hover:text-cyan-100"
+                        onClick={() => void cloneStrategyAction(strategy.id)}
+                        title="Clone"
+                        type="button"
+                      >
+                        <Copy className="h-4 w-4" />
                       </button>
                     </div>
                   </Cell>
@@ -350,6 +434,17 @@ export function StrategyManager() {
 }
 
 function buildPayload(form: StrategyFormState) {
+  const templateFields = form.templateCategory ? {
+    templateCategory: form.templateCategory,
+    maxPositionUsd: form.maxPositionUsd,
+    maxCapitalUsagePercent: form.maxCapitalUsagePercent,
+    minNetRate: form.minNetRate,
+    stopLossPercent: form.stopLossPercent,
+    takeProfitPercent: form.takeProfitPercent,
+    autoCloseWhenFundingBelow: form.autoCloseWhenFundingBelow,
+    enabledPaperTrading: form.enabledPaperTrading,
+  } : {};
+
   if (form.strategyType === "SpotPerp") {
     return {
       name: form.name,
@@ -361,7 +456,8 @@ function buildPayload(form: StrategyFormState) {
       minAnnualized: form.minAnnualized,
       maxLeverage: form.maxLeverage,
       status: form.status,
-      notes: form.notes
+      notes: form.notes,
+      ...templateFields,
     };
   }
 
@@ -374,8 +470,19 @@ function buildPayload(form: StrategyFormState) {
     minFundingSpread: form.minFundingSpread,
     minAnnualizedSpread: form.minAnnualizedSpread,
     status: form.status,
-    notes: form.notes
+    notes: form.notes,
+    ...templateFields,
   };
+}
+
+function formatTemplateCategory(cat: string): string {
+  const labels: Record<string, string> = {
+    "funding-arbitrage": "资金费率套利",
+    "basis-trade": "基差交易",
+    "cross-exchange": "跨交易所",
+    "custom": "自定义",
+  };
+  return labels[cat] || cat;
 }
 
 function toForm(strategy: Strategy): StrategyFormState {

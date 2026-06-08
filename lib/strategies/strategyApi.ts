@@ -3,6 +3,7 @@ import {
   deleteStrategy,
   listStrategies,
   updateStrategy,
+  cloneStrategy,
   type StrategyStoreOptions
 } from "./strategyStore";
 import type { CreateStrategyInput, Strategy, UpdateStrategyInput } from "./types";
@@ -80,6 +81,30 @@ export async function deleteStrategyResponse(
     status: 200,
     data: { deleted: true }
   };
+}
+
+export async function cloneStrategyResponse(
+  id: string,
+  options: StrategyStoreOptions = {}
+): Promise<StrategyApiResponse<Strategy>> {
+  try {
+    const cloned = await cloneStrategy(id, options);
+    if (!cloned) {
+      return {
+        status: 404,
+        error: "source strategy not found"
+      };
+    }
+    return {
+      status: 201,
+      data: cloned
+    };
+  } catch (error) {
+    return {
+      status: 400,
+      error: getErrorMessage(error)
+    };
+  }
 }
 
 function getErrorMessage(error: unknown): string {

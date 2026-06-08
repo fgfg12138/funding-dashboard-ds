@@ -65,7 +65,43 @@ export async function deleteStrategy(id: string, options: StrategyStoreOptions =
   return true;
 }
 
+/**
+ * Clone a strategy by its ID, creating a new copy with "(Clone)" appended to the name.
+ * Returns the new cloned strategy, or undefined if the source strategy was not found.
+ */
+export async function cloneStrategy(id: string, options: StrategyStoreOptions = {}): Promise<Strategy | undefined> {
+  const strategies = await readStrategies(options.strategyPath);
+  const source = strategies.find((s) => s.id === id);
+  if (!source) return undefined;
+
+  const now = options.now ?? Date.now();
+  const clonedId = options.idFactory?.() ?? randomUUID();
+
+  const cloned: Strategy = {
+    ...source,
+    id: clonedId,
+    name: `${source.name} (Clone)`,
+    createdAt: now,
+    updatedAt: now,
+    status: "draft",
+  };
+
+  await writeStrategies([...strategies, cloned], options.strategyPath);
+  return cloned;
+}
+
 function buildStrategy(input: CreateStrategyInput, { id, now }: { id: string; now: number }): Strategy {
+  const templateFields = {
+    templateCategory: input.templateCategory,
+    maxPositionUsd: input.maxPositionUsd,
+    maxCapitalUsagePercent: input.maxCapitalUsagePercent,
+    minNetRate: input.minNetRate,
+    stopLossPercent: input.stopLossPercent,
+    takeProfitPercent: input.takeProfitPercent,
+    autoCloseWhenFundingBelow: input.autoCloseWhenFundingBelow,
+    enabledPaperTrading: input.enabledPaperTrading,
+  };
+
   if (input.strategyType === "SpotPerp") {
     return {
       id,
@@ -81,7 +117,8 @@ function buildStrategy(input: CreateStrategyInput, { id, now }: { id: string; no
       perpExchange: input.perpExchange,
       minFundingRate: input.minFundingRate,
       minAnnualized: input.minAnnualized,
-      maxLeverage: input.maxLeverage
+      maxLeverage: input.maxLeverage,
+      ...templateFields,
     };
   }
 
@@ -98,7 +135,8 @@ function buildStrategy(input: CreateStrategyInput, { id, now }: { id: string; no
     longExchange: input.longExchange,
     shortExchange: input.shortExchange,
     minFundingSpread: input.minFundingSpread,
-    minAnnualizedSpread: input.minAnnualizedSpread
+    minAnnualizedSpread: input.minAnnualizedSpread,
+    ...templateFields,
   };
 }
 
@@ -109,7 +147,19 @@ function applyStrategyUpdate(strategy: Strategy, input: UpdateStrategyInput, now
     symbol: input.symbol !== undefined ? normalizeSymbol(input.symbol) : strategy.symbol,
     status: input.status ?? strategy.status,
     notes: input.notes ?? strategy.notes,
-    updatedAt: now
+    updatedAt: now,
+  };
+
+  // Spread optional template fields if provided
+  const templateFields = {
+    templateCategory: input.templateCategory ?? strategy.templateCategory,
+    maxPositionUsd: input.maxPositionUsd ?? strategy.maxPositionUsd,
+    maxCapitalUsagePercent: input.maxCapitalUsagePercent ?? strategy.maxCapitalUsagePercent,
+    minNetRate: input.minNetRate ?? strategy.minNetRate,
+    stopLossPercent: input.stopLossPercent ?? strategy.stopLossPercent,
+    takeProfitPercent: input.takeProfitPercent ?? strategy.takeProfitPercent,
+    autoCloseWhenFundingBelow: input.autoCloseWhenFundingBelow ?? strategy.autoCloseWhenFundingBelow,
+    enabledPaperTrading: input.enabledPaperTrading ?? strategy.enabledPaperTrading,
   };
 
   if (strategy.strategyType === "SpotPerp") {
@@ -117,6 +167,7 @@ function applyStrategyUpdate(strategy: Strategy, input: UpdateStrategyInput, now
     const perpExchange = input.perpExchange ?? strategy.perpExchange;
     return {
       ...base,
+      ...templateFields,
       strategyType: "SpotPerp",
       spotExchange,
       perpExchange,
@@ -131,6 +182,7 @@ function applyStrategyUpdate(strategy: Strategy, input: UpdateStrategyInput, now
   const shortExchange = input.shortExchange ?? strategy.shortExchange;
   return {
     ...base,
+    ...templateFields,
     strategyType: "CrossExchange",
     longExchange,
     shortExchange,
