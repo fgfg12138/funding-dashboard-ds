@@ -5,8 +5,8 @@
  * No real testnet interaction, no secret decryption, no signing.
  */
 
-import { buildGuardedBlockedResponse } from "../../_shared/blockedResponse";
+import { buildGuardedBlockedResponseWithRateLimit } from "../../_shared/blockedResponse";
 
 export async function POST() {
-  return buildGuardedBlockedResponse("orders-cancel", "binance");
+  return buildGuardedBlockedResponseWithRateLimit("orders-cancel", "binance");
 }
