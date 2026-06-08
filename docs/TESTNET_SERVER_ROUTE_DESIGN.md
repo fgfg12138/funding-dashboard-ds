@@ -445,7 +445,18 @@
 - `testnetRoutesEnabled=true` → warning only
 - 纯函数，无 Secret 读取/解密/签名/网络请求
 
-### Phase 5.17+ — 真实 Testnet 集成（阻塞于代码审查）
+### Phase 5.17 ✅ — Testnet Route Env Integration Skeleton（已完成）
+
+#### 修改文件
+- `app/api/testnet/_shared/blockedResponse.ts` — 集成 env config 解析和校验
+
+#### 行为
+- `buildGuardedBlockedResponseWithRateLimit` 读取 `process.env` 并调用 `parseTestnetEnvConfig` + `validateTestnetEnvConfig`
+- 响应体新增 `env` 字段（exchangeEnv, valid, warnings, errors）
+- 即使 `env.valid=true`，仍返回 403
+- 不读取 Secret、不解密、不签名
+
+### Phase 5.18+ — 真实 Testnet 集成（阻塞于代码审查）
 
 - API Key 解密（server-side only）
 - 订单签名（server-side only）

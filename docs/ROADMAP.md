@@ -644,13 +644,40 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 - ✗ middleware 修改
 - ✗ route 返回 success:true
 
-### Phase 5.17+ — 后续阶段（BLOCKED — 等待明确批准）
+### Phase 5.17 — Testnet Route Env Integration Skeleton（✅ 已完成）
+
+#### 包含
+- `app/api/testnet/_shared/blockedResponse.ts` — 集成 env config 解析和校验
+- `tests/phase5TestnetEnvIntegration.test.ts` — 12 个测试
+
+#### env integration 行为
+- `buildGuardedBlockedResponseWithRateLimit` 在响应周期中解析 `process.env`
+- 读取：`EXCHANGE_ENV`, `LIVE_TRADING_ENABLED`, `ALLOW_MAINNET_TRADING`, `TESTNET_ROUTES_ENABLED`, `TESTNET_ORDER_SUBMIT_ENABLED`
+- 调用 `parseTestnetEnvConfig` + `validateTestnetEnvConfig`
+- 响应体增加 `env` 字段：
+  ```typescript
+  env: {
+    exchangeEnv, testnetRoutesEnabled, testnetOrderSubmitEnabled,
+    valid, warnings, errors,
+  }
+  ```
+- 即使 `env.valid=true`，仍返回 403
+- 不读取 Secret、不解密、不签名
+
+#### 不包含
+- ✗ 真实 testnet 网络请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ 真实下单
+- ✗ middleware 白名单修改
+
+### Phase 5.18+ — 后续阶段（BLOCKED — 等待明确批准）
 
 > **⚠ 后续阶段需要先通过代码审查，获得明确批准后方可开始。**
 > **仍不允许真实网络请求、签名、Secret 解密。**
 
 #### 前置条件
-- ✅ Phase 5.0–5.16 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config 链路完整
+- ✅ Phase 5.0–5.17 Mock Sandbox + Skeleton + Route Design + Route Handler + Security Guard + Guard Integration + Idempotency Store + Rate Limit Store + Audit Store + Closure + Env Config + Env Integration 链路完整
 - ⏳ 代码审查（待完成）
 - ⏳ 独立 testnet 环境变量设计
 - ⏳ 单交易所 testnet adapter 实现

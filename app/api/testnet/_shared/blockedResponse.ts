@@ -10,6 +10,7 @@ import { evaluateTestnetRouteSecurity } from "@/lib/liveAdapters/testnetRouteSec
 import { createIdempotencyRecord } from "@/lib/liveAdapters/testnetIdempotencyStore";
 import { checkRateLimit, incrementRateLimit } from "@/lib/liveAdapters/testnetRateLimitStore";
 import { createTestnetAuditEvent, buildTestnetRequestId } from "@/lib/liveAdapters/testnetAuditStore";
+import { parseTestnetEnvConfig, validateTestnetEnvConfig } from "@/lib/liveAdapters/testnetEnvConfig";
 import type {
   TestnetRouteName,
   TestnetRouteSecurityChecklist,
@@ -193,6 +194,24 @@ export function buildGuardedBlockedResponseWithRateLimit(
     phase: "5.10-skeleton",
   };
 
+  // Parse and validate env config from process.env
+  const envConfig = parseTestnetEnvConfig({
+    EXCHANGE_ENV: process.env.EXCHANGE_ENV,
+    LIVE_TRADING_ENABLED: process.env.LIVE_TRADING_ENABLED,
+    ALLOW_MAINNET_TRADING: process.env.ALLOW_MAINNET_TRADING,
+    TESTNET_ROUTES_ENABLED: process.env.TESTNET_ROUTES_ENABLED,
+    TESTNET_ORDER_SUBMIT_ENABLED: process.env.TESTNET_ORDER_SUBMIT_ENABLED,
+  });
+  const envValidation = validateTestnetEnvConfig(envConfig);
+  const envMeta = {
+    exchangeEnv: envConfig.exchangeEnv,
+    testnetRoutesEnabled: envConfig.testnetRoutesEnabled,
+    testnetOrderSubmitEnabled: envConfig.testnetOrderSubmitEnabled,
+    valid: envValidation.valid,
+    warnings: envValidation.warnings,
+    errors: envValidation.errors,
+  };
+
   const guardResult = evaluateTestnetRouteSecurity(guardInput);
 
   // Check + increment rate limits for all 3 scopes
@@ -298,6 +317,7 @@ export function buildGuardedBlockedResponseWithRateLimit(
         status: idempotencyResult.record.status,
         recordId: idempotencyResult.record.id,
       },
+      env: envMeta,
       rateLimit: rateLimitMeta,
       audit: { requestId },
       auditId: `skeleton-${Date.now()}`,

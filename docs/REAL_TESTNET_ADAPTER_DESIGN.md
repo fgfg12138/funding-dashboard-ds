@@ -734,3 +734,35 @@ request → shared blockedResponse → guard → idempotency → rate limit → 
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 25. Phase 5.17 — Testnet Route Env Integration Skeleton（已完成）
+
+> **⚠ env config 已接入 blockedResponse，但 route 仍返回 403 blocked。**
+
+### 25.1 修改文件
+
+| 文件 | 说明 |
+|------|------|
+| `app/api/testnet/_shared/blockedResponse.ts` | 集成 env config 解析和校验 |
+
+### 25.2 行为
+
+- `buildGuardedBlockedResponseWithRateLimit` 读取 `process.env` 的 5 个字段
+- 调用 `parseTestnetEnvConfig` + `validateTestnetEnvConfig`
+- 响应体新增 `env` 字段：`exchangeEnv`, `testnetRoutesEnabled`, `testnetOrderSubmitEnabled`, `valid`, `warnings`, `errors`
+- 即使 `env.valid=true`，仍返回 403
+- 不读取 Secret、不解密、不签名
+
+### 25.3 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Env config 集成到 blockedResponse | ✅ |
+| 响应体包含 env metadata | ✅ |
+| 所有 route 返回 403 | ✅ |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
