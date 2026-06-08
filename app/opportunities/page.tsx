@@ -14,6 +14,8 @@ import {
   SkeletonStatCards,
   StatCard
 } from "@/components/ui/dashboard";
+import { calculateOpportunityRanking } from "@/lib/opportunityRanking/opportunityRankingEngine";
+import type { OpportunityRankingTier } from "@/lib/opportunityRanking/opportunityRankingTypes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { formatExchangeCoverage, getExchangeCoverageTitle } from "@/lib/exchanges/exchangeCoverage";
 import type { ExchangeName } from "@/lib/exchanges/types";
@@ -152,6 +154,16 @@ export default function OpportunitiesPage() {
     });
   }, [exchange, hideHighRisk, minAnnualized, minScore, minVolume24h, opportunityType, quickMode, recommendedOnly, rows, search, sortBy, sortOrder]);  const stats = useMemo(() => buildStats(rows), [rows]);
 
+  // Ranking tier computation for display
+  const rankedMap = useMemo(() => {
+    const map = new Map<string, OpportunityRankingTier>();
+    for (const row of rows) {
+      const ranking = calculateOpportunityRanking(row);
+      map.set(row.id, ranking.rankingTier);
+    }
+    return map;
+  }, [rows]);
+
   const updateSort = useCallback((nextSort: UnifiedOpportunitySortBy) => {
     const next = toggleSortState({ sort: sortBy, order: sortOrder }, nextSort);
     const params = new URLSearchParams(window.location.search);
@@ -276,6 +288,7 @@ export default function OpportunitiesPage() {
           <thead className="sticky top-0 z-10 bg-slate-950 text-xs uppercase tracking-wide text-slate-500">
             <tr className="border-b border-slate-800">
               <SortableTh align="right" current={{ sort: sortBy, order: sortOrder }} sort="score" onSort={updateSort}>评分</SortableTh>
+              <Th align="right">Rank</Th>
               <Th>类型</Th>
               <Th>风险</Th>
               <Th>币种</Th>
@@ -293,12 +306,15 @@ export default function OpportunitiesPage() {
           </thead>
           <tbody className="divide-y divide-slate-800">
             {loading && rows.length === 0 ? (
-              <SkeletonRows colSpan={14} rowCount={5} />
+              <SkeletonRows colSpan={15} rowCount={5} />
             ) : null}
             {filteredRows.map((row) => (
               <tr className="bg-slate-950/20 hover:bg-slate-900/70" key={row.id}>
                 <Td align="right">
                   <ScoreBadge score={row.score} />
+                </Td>
+                <Td align="right">
+                  <RankingTierBadge tier={rankedMap.get(row.id) ?? "weak"} />
                 </Td>
                 <Td>
                   <TypeBadge label={row.opportunityType} />
@@ -340,7 +356,7 @@ export default function OpportunitiesPage() {
             ))}
             {!loading && filteredRows.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={14}>
+                <td className="px-4 py-8 text-center text-sm text-slate-500" colSpan={15}>
                   暂无符合条件的机会。
                 </td>
               </tr>
@@ -466,6 +482,27 @@ function formatType(value: "all" | UnifiedOpportunityType) {
 
 function formatPercent(value: number) {
   return value.toFixed(2);
+}
+
+/** Ranking tier badge component. */
+function RankingTierBadge({ tier }: { tier: OpportunityRankingTier }) {
+  const colors: Record<OpportunityRankingTier, string> = {
+    elite: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    strong: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    medium: "border-blue-500/40 bg-blue-500/10 text-blue-300",
+    weak: "border-slate-600/40 bg-slate-700/30 text-slate-400",
+  };
+  const labels: Record<OpportunityRankingTier, string> = {
+    elite: "Elite",
+    strong: "Strong",
+    medium: "Medium",
+    weak: "Weak",
+  };
+  return (
+    <span className={`inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium ${colors[tier]}`}>
+      {labels[tier]}
+    </span>
+  );
 }
 
 function formatSpreadBasis(row: UnifiedOpportunity) {
