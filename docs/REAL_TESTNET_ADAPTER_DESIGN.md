@@ -1057,3 +1057,43 @@ request → env → guard → secretPolicy → permissionCheck → validation �
 | Secret 解密 | ❌ 无 |
 | 签名 | ❌ 无 |
 | Middleware 修改 | ❌ 无 |
+
+---
+
+## 33. Phase 5.26 — Testnet Readiness Dashboard（已完成）
+
+> **⚠ 只读 Dashboard — 不启用 testnet、不读取 Secret、不下单。**
+
+### 33.1 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `app/testnet-readiness/page.tsx` | 只读 Dashboard 页面 |
+| `lib/liveAdapters/testnetReadinessSummary.ts` | 汇总模块 |
+| `lib/liveAdapters/testnetReadinessSummary.test.ts` | 14 个测试 |
+
+### 33.2 修改文件
+
+| 文件 | 说明 |
+|------|------|
+| `components/ui/dashboard.tsx` | 新增 "Testnet Readiness" 导航链接 |
+
+### 33.3 Dashboard 页面结构
+
+- ⚠️ Readiness Dashboard Only 警告
+- ❌ NOT READY 状态卡片
+- 5 个统计卡片（Total / Pass / Blocked / Not Started / Required Blocked）
+- Category Breakdown（10 个类别）
+- Required Blockers 列表
+- 全部 Checklist 表格（31 项）
+
+### 33.4 当前状态
+
+| 事项 | 状态 |
+|------|------|
+| Readiness Dashboard | ✅ |
+| 所有 route 返回 403 | ✅ |
+| 真实 testnet 请求 | ❌ 无 |
+| Secret 解密 | ❌ 无 |
+| 签名 | ❌ 无 |
+| Middleware 修改 | ❌ 无 |
