@@ -79,6 +79,7 @@
 | Rate Limit | 限流计数骨架 | 5.13 |
 | Idempotency | 幂等记录骨架 | 5.12 |
 | Adapter | Binance skeleton + 接口定义 | 5.7, 5.8 |
+| Rollback | Rollback plan design | 6.5 |
 
 ---
 

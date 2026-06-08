@@ -1152,7 +1152,40 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 真实 testnet 请求
 - ✗ middleware 修改
 
-#### Phase 6.5+ — 真实 Testnet 实现（BLOCKED — 等待审批）
+#### Phase 6.5 — Testnet Rollback Plan Design（✅ 已完成 — Design Only）
+
+##### 包含
+- `docs/TESTNET_ROLLBACK_PLAN_DESIGN.md` — 3.3 KB 设计文档
+- `lib/liveAdapters/testnetRollbackTypes.ts` — Rollback 类型
+- `lib/liveAdapters/testnetRollbackPolicy.ts` — Rollback 策略（6 项规则 + 状态处理矩阵）
+- `lib/liveAdapters/testnetRollbackPolicy.test.ts` — 21 个测试
+
+##### 设计覆盖
+- 7 种 rollback 场景 + 动作设计
+- 6 种订单状态处理矩阵
+- Kill Switch 联动
+- Audit / Notification 要求
+- 人工确认要求
+
+##### Policy 规则
+| # | 条件 | 结果 |
+|---|------|------|
+| 1 | environment !== "testnet" | ❌ ENVIRONMENT_NOT_TESTNET |
+| 2 | auditPersistenceReady !== true | ❌ AUDIT_PERSISTENCE_NOT_READY |
+| 3 | operatorConfirmed !== true | ❌ OPERATOR_NOT_CONFIRMED |
+| 4 | killSwitchEnabled | ⚠️ freeze + cancel + reconciliation |
+| 5 | status unknown/submitted/partial | 🎯 cancel-order-planned |
+| 6 | status filled/partial | 🎯 reconciliation-required |
+| 7 | 全部通过 | ❌ PHASE_6_5_ROLLBACK_DISABLED |
+
+##### 不包含
+- ✗ 真实撤单
+- ✗ 真实下单
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.6+ — 真实 Testnet 实现（BLOCKED — 等待审批）
 
 ---
 
