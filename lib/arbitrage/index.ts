@@ -57,3 +57,22 @@ export {
   evaluateStopLoss,
   evaluateTakeProfit,
 } from "./exitEngine";
+
+// Capital Allocation (Alpha A6)
+export type {
+  CapitalAllocation,
+  CapitalAllocationConfig,
+  CapitalAllocationInput,
+  CapitalAllocationOpportunity,
+  CapitalAllocationResult,
+  SkippedAllocation,
+} from "./capitalAllocationTypes";
+
+export {
+  allocateCapital,
+  applyAllocationLimits,
+  calculateAllocationWeight,
+  calculateExpectedAnnualProfit,
+  filterEligibleOpportunities,
+  normalizeAllocationWeights,
+} from "./capitalAllocationEngine";
