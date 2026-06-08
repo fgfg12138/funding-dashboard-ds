@@ -998,7 +998,7 @@ git tag v0.5.0-rc.1 && git push --tags
 
 ### Phase 6 — Testnet 集成设计审查 (Design Only, BLOCKED)
 
-> **状态：Phase 6.0–6.9 已完成。Phase 6.10 BLOCKED — 等待审批。**
+> **状态：Phase 6.0–6.10 已完成。Phase 6.11 BLOCKED — 等待审批。**
 
 #### Phase 6.0 — Real Testnet Readiness Review（✅ 已完成 — Review Only）
 
@@ -1273,9 +1273,35 @@ git tag v0.5.0-rc.1 && git push --tags
 - ✗ 签名
 - ✗ middleware 修改
 
-#### Phase 6.10+ — 后续阶段（BLOCKED — 等待明确批准）
+#### Phase 6.10 — Persistent Audit Implementation Preparation（✅ 已完成 — Preparation Only）
 
-> **⚠ Phase 6.10 只能选择单个 blocker 开始 design/implementation preparation。**
+##### 包含
+- `docs/PERSISTENT_AUDIT_IMPLEMENTATION_PREPARATION.md` — 2.4 KB preparation 文档
+- `lib/audit/persistentAuditRepositoryTypes.ts` — Repository 接口（6 个方法）
+- `lib/audit/persistentAuditRepository.ts` — Disabled skeleton 实现
+- `lib/audit/persistentAuditRepository.test.ts` — 16 个测试
+
+##### Disabled Repository 行为
+| 方法 | 返回 |
+|------|------|
+| `appendEvent` | `{ success: false, error: "disabled" }` |
+| `getEventById` | `null` |
+| `listEvents` | `[]` |
+| `verifyIntegrity` | `{ implemented: false }` |
+| `exportEvents` | `{ data: "[]" }` |
+| `pruneExpiredEvents` | `{ prunedCount: 0 }` |
+
+##### 不包含
+- ✗ 数据库连接 (SQLite/Postgres/Prisma)
+- ✗ 文件写入 (fs)
+- ✗ 真实 testnet 请求
+- ✗ Secret 解密
+- ✗ 签名
+- ✗ middleware 修改
+
+#### Phase 6.11+ — 后续阶段（BLOCKED — 等待明确批准）
+
+> **⚠ Phase 6.11 只能继续处理 audit blocker 或选择其他 blocker。**
 
 ---
 
