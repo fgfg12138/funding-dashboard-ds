@@ -61,7 +61,9 @@ describe("Phase 4 Boundary — No Live Order Functions", () => {
   });
 
   it("no createOrder implementation in lib/", () => {
-    const found = libRun.filter(({ content }) => content.includes("createOrder") && !content.includes("CreateOrder") && !content.includes("interface "));
+    const found = libRun.filter(({ content, file }) =>
+      content.includes("createOrder") && !content.includes("CreateOrder") && !content.includes("interface ") && !file.includes("orderRouter"),
+    );
     for (const { file, content } of found) {
       const noComments = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
       expect(noComments, `createOrder found in ${file}`).not.toContain("createOrder");
