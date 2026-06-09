@@ -77,3 +77,23 @@ export {
   evaluatePortfolioRisk,
   evaluateReconciliationRisk,
 } from "./riskEngine";
+
+// Live-7: Kill Switch
+export type {
+  KillSwitchAction,
+  KillSwitchConfig,
+  KillSwitchDecision,
+  KillSwitchRequestedAction,
+  KillSwitchState,
+  KillSwitchStatus,
+  KillSwitchTriggerReason,
+} from "./killSwitchTypes";
+
+export {
+  applyKillSwitchState,
+  canExecuteAction,
+  createInitialKillSwitchState,
+  evaluateKillSwitch,
+  lockKillSwitch,
+  unlockKillSwitch,
+} from "./killSwitchEngine";
