@@ -1,10 +1,11 @@
 /**
- * Live Auto Entry Engine — Live Phase 3
+ * Live Auto Entry Engine — Live Phase 3 + Safety Patch-1
  *
  * Orchestrates the automated entry pipeline:
- *   select candidates → validate → build hedge plan → execute via Hedge Engine
+ *   select candidates → validate → risk+kill switch check → build hedge plan → execute
  *
- * Reuses: Alpha-6 Capital Allocation, Beta-5 Risk, Live-2 Hedge Engine, Live-1 Order Router.
+ * Reuses: Alpha-6 Capital Allocation, Beta-5 Risk, Live-2 Hedge Engine,
+ *         Live-6 Risk Engine, Live-7 Kill Switch, Live-1 Order Router.
  * Does NOT hardcode any exchange name.
  *
  * Pure functions — Hedge Engine calls are the only async boundary.
@@ -13,6 +14,10 @@
 import { buildSpotPerpHedgePlan, buildPerpPerpSpreadHedgePlan, executeHedgePlan } from "../hedgeEngine/hedgeEngine";
 import type { HedgePlan, HedgePlanStatus } from "../hedgeEngine/hedgeEngineTypes";
 import type { RiskReport } from "../riskMonitoring/riskMonitoringTypes";
+import { evaluateLiveRisk } from "./riskEngine";
+import type { LiveRiskContext, LiveRiskEngineConfig } from "./riskEngineTypes";
+import { evaluateKillSwitch, canExecuteAction, createInitialKillSwitchState } from "./killSwitchEngine";
+import type { KillSwitchConfig, KillSwitchState } from "./killSwitchTypes";
 import type {
   AutoEntryCandidate,
   LiveAutoEntryConfig,
@@ -69,6 +74,48 @@ function riskExceedsMax(riskLevel: string, maxRiskLevel: string): boolean {
   const riskScore = RISK_ORDER[riskLevel] ?? 999;
   const maxScore = RISK_ORDER[maxRiskLevel] ?? 0;
   return riskScore > maxScore;
+}
+
+// ─── Safety Check Helpers ────────────────────────────────
+
+/**
+ * Perform the risk + kill switch safety check for entry.
+ * Returns error messages (empty = allowed).
+ */
+function checkEntrySafety(
+  cfg: Required<LiveAutoEntryConfig>,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
+  defaultKillSwitchConfig?: KillSwitchConfig,
+): string[] {
+  const errors: string[] = [];
+
+  // If requireRiskCheck is set but no riskContext provided → conservative block
+  if (cfg.requireRiskCheck && !riskContext) {
+    errors.push("Risk context is required for safety check but none provided.");
+    return errors;
+  }
+
+  if (!riskContext) return errors; // no risk context, skip safety checks
+
+  // 1. Evaluate risk
+  const riskDecision = evaluateLiveRisk(riskContext, riskEngineConfig);
+
+  // 2. Evaluate kill switch
+  const state = killSwitchState ?? createInitialKillSwitchState();
+  const killCfg = killSwitchConfig ?? defaultKillSwitchConfig ?? {};
+  const killDecision = evaluateKillSwitch(state, riskDecision, killCfg);
+
+  // 3. Check entry permission
+  const permission = canExecuteAction(killDecision.state, "entry");
+  if (!permission.allowed) {
+    errors.push(`Risk check blocked: ${riskDecision.action} / ${riskDecision.level}`);
+    errors.push(`Kill switch: ${killDecision.action} — ${killDecision.reasons.join("; ")}`);
+  }
+
+  return errors;
 }
 
 // ─── Public API ──────────────────────────────────────────
@@ -220,15 +267,29 @@ export function buildAutoEntryHedgePlan(
  *
  * Steps:
  * 1. Validate the candidate
- * 2. If validation fails, return blocked
- * 3. Build hedge plan
- * 4. If dryRun, return planned with the plan
- * 5. Otherwise, execute through Hedge Engine
+ * 2. Safety check: Risk Engine + Kill Switch (entry permission)
+ * 3. If safety blocks, return blocked
+ * 4. Build hedge plan
+ * 5. If dryRun, return planned with the plan
+ * 6. Otherwise, execute through Hedge Engine
+ *
+ * @param candidate           - The candidate to execute.
+ * @param currentOpenCount    - Number of currently open positions.
+ * @param config              - Auto entry configuration.
+ * @param riskContext         - Risk context for Live-6 evaluation (optional, required if requireRiskCheck=true).
+ * @param riskEngineConfig    - Risk engine configuration (optional).
+ * @param killSwitchState     - Current kill switch state (optional, defaults to active).
+ * @param killSwitchConfig    - Kill switch configuration (optional).
+ * @returns AutoEntryResult.
  */
 export async function executeAutoEntry(
   candidate: AutoEntryCandidate,
   currentOpenCount: number,
   config: LiveAutoEntryConfig,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
 ): Promise<AutoEntryResult> {
   const cfg = resolveConfig(config);
 
@@ -243,7 +304,18 @@ export async function executeAutoEntry(
     };
   }
 
-  // 2. Build hedge plan
+  // 2. Safety check: Risk Engine + Kill Switch
+  const safetyErrors = checkEntrySafety(cfg, riskContext, riskEngineConfig, killSwitchState, killSwitchConfig);
+  if (safetyErrors.length > 0) {
+    return {
+      success: false,
+      status: "blocked",
+      candidate,
+      errors: safetyErrors,
+    };
+  }
+
+  // 3. Build hedge plan
   let hedgePlan: HedgePlan;
   try {
     hedgePlan = buildAutoEntryHedgePlan(candidate, cfg);
@@ -257,7 +329,7 @@ export async function executeAutoEntry(
     };
   }
 
-  // 3. Dry run
+  // 4. Dry run
   if (cfg.dryRun) {
     return {
       success: true,
@@ -268,7 +340,7 @@ export async function executeAutoEntry(
     };
   }
 
-  // 4. Execute through Hedge Engine
+  // 5. Execute through Hedge Engine
   const hedgeResult = await executeHedgePlan(hedgePlan, {
     dryRun: false,
     allowPartialExecution: false,
@@ -295,15 +367,23 @@ export async function executeAutoEntry(
 /**
  * Run the full auto entry pipeline for a set of candidates.
  *
- * @param candidates      - Candidate opportunities to evaluate.
- * @param currentOpenCount - Number of currently open positions.
- * @param config           - Auto entry configuration.
+ * @param candidates          - Candidate opportunities to evaluate.
+ * @param currentOpenCount    - Number of currently open positions.
+ * @param config              - Auto entry configuration.
+ * @param riskContext         - Risk context (optional, passed to each executeAutoEntry call).
+ * @param riskEngineConfig    - Risk engine configuration (optional).
+ * @param killSwitchState     - Current kill switch state (optional).
+ * @param killSwitchConfig    - Kill switch configuration (optional).
  * @returns AutoEntryReport with per-candidate results.
  */
 export async function runAutoEntry(
   candidates: AutoEntryCandidate[],
   currentOpenCount: number,
   config: LiveAutoEntryConfig,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
 ): Promise<AutoEntryReport> {
   const cfg = resolveConfig(config);
 
@@ -326,7 +406,15 @@ export async function runAutoEntry(
   const results: AutoEntryResult[] = [];
 
   for (const candidate of eligible) {
-    const result = await executeAutoEntry(candidate, currentOpenCount + results.filter((r) => r.status === "executed").length, cfg);
+    const result = await executeAutoEntry(
+      candidate,
+      currentOpenCount + results.filter((r) => r.status === "executed").length,
+      cfg,
+      riskContext,
+      riskEngineConfig,
+      killSwitchState,
+      killSwitchConfig,
+    );
     results.push(result);
   }
 

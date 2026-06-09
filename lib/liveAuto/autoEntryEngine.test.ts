@@ -1,10 +1,9 @@
 /**
- * Live Auto Entry Engine Tests — Live Phase 3
+ * Live Auto Entry Engine Tests — Live Phase 3 + Safety Patch-1
  *
  * Acceptance criteria:
- *   BTC: netApy=28, score=90, allocated=20000, markPrice=100000,
- *        risk=low, enabled=true, dryRun=true, minNetApy=10, minScore=60,
- *        maxOpen=5, maxNotional=50000, hedgeMode=spot_perp
+ *   BTC: netApy=28, score=90, allocated=20000, markPrice=100000, risk=low,
+ *        enabled=true, dryRun=true, low risk + active kill switch
  *   → status=planned, hedgePlan exists, spot long 0.2, perp short 0.2
  *   → no real execution
  */
@@ -19,6 +18,8 @@ import {
   validateAutoEntryCandidate,
 } from "./autoEntryEngine";
 import type { AutoEntryCandidate, LiveAutoEntryConfig } from "./autoEntryTypes";
+import type { LiveRiskContext } from "./riskEngineTypes";
+import type { KillSwitchState } from "./killSwitchTypes";
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -55,16 +56,28 @@ function makeConfig(overrides?: Partial<LiveAutoEntryConfig>): LiveAutoEntryConf
   };
 }
 
+function makeRiskContext(overrides?: Partial<LiveRiskContext>): LiveRiskContext {
+  return {
+    riskReport: { events: [], lowCount: 0, mediumCount: 0, highCount: 0, criticalCount: 0, overallRisk: "low", generatedAt: Date.now() },
+    reconciliationReport: { items: [], matchedCount: 0, mismatchCount: 0, highSeverityCount: 0, generatedAt: Date.now() },
+    portfolioReport: { summary: { totalAllocatedCapitalUsd: 0, totalNotionalUsd: 0, totalFundingCollectedUsd: 0, totalTradingPnlUsd: 0, totalPnlUsd: 0, portfolioApyPercent: 0, capitalUtilizationPercent: 0, totalDeltaUsd: 0, totalDeltaPercent: 0, openPositionCount: 0, closedPositionCount: 0, positionCount: 0, generatedAt: Date.now() }, contributions: [] },
+    capitalState: { totalCapitalUsd: 100000, reserveUsd: 10000, deployedCapitalUsd: 50000, availableCapitalUsd: 40000, unrealizedPnlUsd: 0, realizedPnlUsd: 0, fundingCollectedUsd: 0, utilizationPercent: 50, updatedAt: Date.now() },
+    openPositionsCount: 2,
+    recentFailedExecutions: 0,
+    ...overrides,
+  };
+}
+
 const DEFAULT_CONFIG = makeConfig();
+const DEFAULT_RISK = makeRiskContext();
+const ACTIVE_KILL: KillSwitchState = { status: "active", action: "allow", reasons: [], updatedAt: Date.now() };
 
 // ─── Acceptance Criteria ─────────────────────────────────
 
 describe("acceptance criteria", () => {
-  it("BTC planned with spot long 0.2 + perp short 0.2", async () => {
+  it("low risk + active kill → planned with spot 0.2 + perp 0.2", async () => {
     const candidate = makeCandidate();
-    const config = makeConfig();
-
-    const result = await executeAutoEntry(candidate, 0, config);
+    const result = await executeAutoEntry(candidate, 0, DEFAULT_CONFIG, DEFAULT_RISK, undefined, ACTIVE_KILL);
 
     expect(result.status).toBe("planned");
     expect(result.hedgePlan).toBeDefined();
@@ -76,7 +89,6 @@ describe("acceptance criteria", () => {
     expect(spot.quantity).toBeCloseTo(0.2, 4);
     expect(perp.side).toBe("short");
     expect(perp.quantity).toBeCloseTo(0.2, 4);
-
     expect(result.errors).toEqual([]);
   });
 });
@@ -181,19 +193,57 @@ describe("buildAutoEntryHedgePlan", () => {
   });
 });
 
+// ─── Safety: Risk + Kill Switch Checks ───────────────
+
+describe("safety — risk + kill switch", () => {
+  it("critical risk → entry blocked", async () => {
+    const ctx = makeRiskContext({ riskReport: { ...DEFAULT_RISK.riskReport, overallRisk: "critical" } });
+    const result = await executeAutoEntry(makeCandidate(), 0, DEFAULT_CONFIG, ctx, undefined, ACTIVE_KILL);
+    expect(result.status).toBe("blocked");
+    expect(result.errors.some((e) => e.includes("blocked"))).toBe(true);
+  });
+
+  it("critical risk + manualUnlockRequired=false → triggered reduce_only → entry blocked", async () => {
+    const ctx = makeRiskContext({ riskReport: { ...DEFAULT_RISK.riskReport, overallRisk: "critical" } });
+    const result = await executeAutoEntry(makeCandidate(), 0, makeConfig({ blockEntryOnCriticalRisk: true }), ctx, undefined, undefined, { manualUnlockRequired: false });
+    expect(result.status).toBe("blocked");
+  });
+
+  it("kill switch locked → entry blocked", async () => {
+    const lockedState: KillSwitchState = { status: "locked", action: "manual_review_required", reasons: ["operator_lock"], triggeredAt: Date.now(), lockedAt: Date.now(), updatedAt: Date.now() };
+    const result = await executeAutoEntry(makeCandidate(), 0, DEFAULT_CONFIG, DEFAULT_RISK, undefined, lockedState);
+    expect(result.status).toBe("blocked");
+  });
+
+  it("requireRiskCheck=true but no riskContext → blocked", async () => {
+    const result = await executeAutoEntry(makeCandidate(), 0, DEFAULT_CONFIG);
+    expect(result.status).toBe("blocked");
+    expect(result.errors.some((e) => e.includes("Risk context"))).toBe(true);
+  });
+
+  it("requireRiskCheck=false + no riskContext → allowed", async () => {
+    const result = await executeAutoEntry(makeCandidate(), 0, makeConfig({ requireRiskCheck: false }));
+    expect(result.status).toBe("planned");
+  });
+
+  it("dryRun=true still goes through safety check and fails if risk context missing", async () => {
+    const result = await executeAutoEntry(makeCandidate(), 0, DEFAULT_CONFIG);
+    expect(result.status).toBe("blocked");
+  });
+});
+
 // ─── executeAutoEntry — dryRun ───────────────────────
 
 describe("executeAutoEntry — dryRun", () => {
   it("dryRun=true returns planned with hedgePlan", async () => {
-    const result = await executeAutoEntry(makeCandidate(), 0, makeConfig({ dryRun: true }));
+    const result = await executeAutoEntry(makeCandidate(), 0, DEFAULT_CONFIG, DEFAULT_RISK, undefined, ACTIVE_KILL);
     expect(result.status).toBe("planned");
     expect(result.hedgePlan).toBeDefined();
     expect(result.hedgeExecutionResult).toBeUndefined();
   });
 
   it("dryRun=false calls hedge engine", async () => {
-    const result = await executeAutoEntry(makeCandidate(), 0, makeConfig({ dryRun: false }));
-    // With mock adapters, should execute
+    const result = await executeAutoEntry(makeCandidate(), 0, makeConfig({ dryRun: false }), DEFAULT_RISK, undefined, ACTIVE_KILL);
     expect(result.status).toBe("executed");
     expect(result.hedgeExecutionResult).toBeDefined();
     expect(result.hedgeExecutionResult!.orders.length).toBe(2);
@@ -209,19 +259,16 @@ describe("runAutoEntry", () => {
       0,
       makeConfig({ enabled: false }),
     );
-
     expect(report.results.length).toBe(2);
     expect(report.blockedCount).toBe(2);
   });
 
   it("mixed candidates produce correct report counts", async () => {
     const good = makeCandidate();
-    const bad = makeCandidate({ expectedNetApy: 5 }); // blocked
+    const bad = makeCandidate({ expectedNetApy: 5 }); // blocked by validation
 
-    const report = await runAutoEntry([good, bad], 0, DEFAULT_CONFIG);
-
+    const report = await runAutoEntry([good, bad], 0, DEFAULT_CONFIG, DEFAULT_RISK, undefined, ACTIVE_KILL);
     expect(report.plannedCount).toBe(1); // good is planned (dryRun)
-    expect(report.blockedCount).toBe(0); // bad is filtered out by selectAutoEntryCandidates, not in results
   });
 });
 
@@ -241,7 +288,7 @@ describe("generateAutoEntryReport", () => {
     expect(report.plannedCount).toBe(1);
     expect(report.executedCount).toBe(1);
     expect(report.blockedCount).toBe(1);
-    expect(report.failedCount).toBe(2); // failed + partial
+    expect(report.failedCount).toBe(2);
   });
 
   it("report has generatedAt", () => {

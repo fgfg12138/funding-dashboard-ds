@@ -1,10 +1,11 @@
 /**
- * Auto Exit Engine — Live Phase 4
+ * Auto Exit Engine — Live Phase 4 + Safety Patch-1
  *
  * Orchestrates the automated exit pipeline:
- *   evaluate positions → detect exit signals → validate → build close hedge plan → execute
+ *   evaluate positions → detect exit signals → validate → risk+kill switch check → build close hedge plan → execute
  *
- * Reuses: Alpha-5 Exit Engine, Semi-4 Exit Suggestion, Live-2 Hedge Engine, Live-1 Order Router.
+ * Reuses: Alpha-5 Exit Engine, Semi-4 Exit Suggestion, Live-2 Hedge Engine,
+ *         Live-6 Risk Engine, Live-7 Kill Switch, Live-1 Order Router.
  * Does NOT hardcode any exchange name.
  *
  * Pure functions — Hedge Engine calls are the only async boundary.
@@ -16,6 +17,10 @@ import type { PositionExitSuggestion } from "../semiAuto/exitSuggestionTypes";
 import { executeHedgePlan } from "../hedgeEngine/hedgeEngine";
 import type { HedgeLegPlan, HedgePlan, HedgePlanStatus } from "../hedgeEngine/hedgeEngineTypes";
 import type { RiskReport } from "../riskMonitoring/riskMonitoringTypes";
+import { evaluateLiveRisk } from "./riskEngine";
+import type { LiveRiskContext, LiveRiskEngineConfig } from "./riskEngineTypes";
+import { evaluateKillSwitch, canExecuteAction, createInitialKillSwitchState } from "./killSwitchEngine";
+import type { KillSwitchConfig, KillSwitchState } from "./killSwitchTypes";
 import type {
   AutoExitCandidate,
   LiveAutoExitConfig,
@@ -64,6 +69,49 @@ function nextId(): string {
 
 function reverseSide(side: string): "long" | "short" {
   return side === "long" ? "short" : "long";
+}
+
+// ─── Safety Check Helper ────────────────────────────────
+
+/**
+ * Perform the risk + kill switch safety check for exit.
+ * Exit is a risk-reducing action — reduce_only mode allows it,
+ * but locked state blocks it.
+ * Returns error messages (empty = allowed).
+ */
+function checkExitSafety(
+  cfg: Required<LiveAutoExitConfig>,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
+  defaultKillSwitchConfig?: KillSwitchConfig,
+): string[] {
+  const errors: string[] = [];
+
+  // If requireRiskCheck is set but no riskContext provided → conservative block for real execution
+  if (cfg.requireRiskCheck && !riskContext && !cfg.dryRun) {
+    errors.push("Risk context is required for real exit execution but none provided.");
+    return errors;
+  }
+
+  if (!riskContext) return errors; // no risk context, skip safety checks
+
+  // 1. Evaluate risk
+  const riskDecision = evaluateLiveRisk(riskContext, riskEngineConfig);
+
+  // 2. Evaluate kill switch
+  const state = killSwitchState ?? createInitialKillSwitchState();
+  const killCfg = killSwitchConfig ?? defaultKillSwitchConfig ?? {};
+  const killDecision = evaluateKillSwitch(state, riskDecision, killCfg);
+
+  // 3. Check exit permission (exits are allowed in reduce_only, blocked in locked)
+  const permission = canExecuteAction(killDecision.state, "exit");
+  if (!permission.allowed) {
+    errors.push(`Exit blocked: ${killDecision.action} — ${killDecision.reasons.join("; ")}`);
+  }
+
+  return errors;
 }
 
 // ─── Public API ──────────────────────────────────────────
@@ -232,14 +280,29 @@ export function buildAutoExitHedgePlan(
  * Steps:
  * 1. Find the position
  * 2. Validate against config
- * 3. Build close hedge plan
- * 4. If dryRun, return planned with the plan
- * 5. Otherwise, execute through Hedge Engine
+ * 3. Safety check: Risk Engine + Kill Switch (exit permission)
+ * 4. If safety blocks, return blocked
+ * 5. Build close hedge plan
+ * 6. If dryRun, return planned with the plan
+ * 7. Otherwise, execute through Hedge Engine
+ *
+ * @param position            - The position to close.
+ * @param candidate           - The exit candidate.
+ * @param config              - Auto exit configuration.
+ * @param riskContext         - Risk context for Live-6 evaluation (optional).
+ * @param riskEngineConfig    - Risk engine configuration (optional).
+ * @param killSwitchState     - Current kill switch state (optional, defaults to active).
+ * @param killSwitchConfig    - Kill switch configuration (optional).
+ * @returns AutoExitResult.
  */
 export async function executeAutoExit(
   position: ArbitragePosition | undefined,
   candidate: AutoExitCandidate,
   config: LiveAutoExitConfig,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
 ): Promise<AutoExitResult> {
   const cfg = resolveConfig(config);
 
@@ -263,10 +326,21 @@ export async function executeAutoExit(
     };
   }
 
-  // 2. Build close hedge plan
+  // 2. Safety check: Risk Engine + Kill Switch
+  const safetyErrors = checkExitSafety(cfg, riskContext, riskEngineConfig, killSwitchState, killSwitchConfig);
+  if (safetyErrors.length > 0) {
+    return {
+      success: false,
+      status: "blocked",
+      candidate,
+      errors: safetyErrors,
+    };
+  }
+
+  // 3. Build close hedge plan
   const hedgePlan = buildAutoExitHedgePlan(position);
 
-  // 3. Dry run
+  // 4. Dry run
   if (cfg.dryRun) {
     return {
       success: true,
@@ -277,7 +351,7 @@ export async function executeAutoExit(
     };
   }
 
-  // 4. Execute through Hedge Engine
+  // 5. Execute through Hedge Engine
   const hedgeResult = await executeHedgePlan(hedgePlan, {
     dryRun: false,
     allowPartialExecution: false,
@@ -304,15 +378,23 @@ export async function executeAutoExit(
 /**
  * Run the full auto exit pipeline for a set of open positions.
  *
- * @param positions    - Open arbitrage positions.
- * @param currentTime  - Current simulated time (ms).
- * @param config       - Auto exit configuration.
+ * @param positions           - Open arbitrage positions.
+ * @param currentTime         - Current simulated time (ms).
+ * @param config              - Auto exit configuration.
+ * @param riskContext         - Risk context (optional, passed to each executeAutoExit call).
+ * @param riskEngineConfig    - Risk engine configuration (optional).
+ * @param killSwitchState     - Current kill switch state (optional).
+ * @param killSwitchConfig    - Kill switch configuration (optional).
  * @returns AutoExitReport with per-position results.
  */
 export async function runAutoExit(
   positions: ArbitragePosition[],
   currentTime: number,
   config: LiveAutoExitConfig,
+  riskContext?: LiveRiskContext,
+  riskEngineConfig?: LiveRiskEngineConfig,
+  killSwitchState?: KillSwitchState,
+  killSwitchConfig?: KillSwitchConfig,
 ): Promise<AutoExitReport> {
   const cfg = resolveConfig(config);
 
@@ -344,7 +426,7 @@ export async function runAutoExit(
 
   for (const candidate of candidates) {
     const position = positions.find((p) => p.id === candidate.positionId);
-    const result = await executeAutoExit(position, candidate, cfg);
+    const result = await executeAutoExit(position, candidate, cfg, riskContext, riskEngineConfig, killSwitchState, killSwitchConfig);
     results.push(result);
   }
 
