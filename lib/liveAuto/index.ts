@@ -56,3 +56,24 @@ export {
   generateCapitalManagerReport,
   validateCapitalDecision,
 } from "./capitalManagerEngine";
+
+// Live-6: Risk Engine
+export type {
+  LiveRiskAction,
+  LiveRiskCategory,
+  LiveRiskContext,
+  LiveRiskDecision,
+  LiveRiskEngineConfig,
+  LiveRiskLevel,
+} from "./riskEngineTypes";
+
+export {
+  aggregateRiskAction,
+  evaluateCapitalRisk,
+  evaluateEntryPermission,
+  evaluateExecutionRisk,
+  evaluateExitPermission,
+  evaluateLiveRisk,
+  evaluatePortfolioRisk,
+  evaluateReconciliationRisk,
+} from "./riskEngine";
