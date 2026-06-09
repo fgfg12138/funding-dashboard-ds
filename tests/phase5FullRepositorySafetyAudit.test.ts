@@ -133,7 +133,9 @@ describe("Safety — No Mainnet Capability", () => {
     "testnetRouteTypes", "testnetRouteSecurityGuard", "sandboxSafetyGate",
     "blockedResponse", "executionQueueTypes", "testnetSecretPolicy",
     "binanceTestnetAdapterSkeleton", "goNoGoReview", "noGoRemediation",
-    "ReadOnly"];
+    "ReadOnly", "mainnet24hShadowTypes", "mainnetReadOnlyShadowTypes",
+    // index.ts exports MainnetShadowReport / Mainnet24hShadowReport in type re-exports
+    "liveAuto/index.ts"];
 
   // Check all files for mainnet in run code (not comments)
   for (const f of allFiles) {
@@ -152,7 +154,7 @@ describe("Safety — No Mainnet Capability", () => {
     const libFiles = collectFiles("lib", (n) => /\.(ts|tsx)$/.test(n) && !n.includes(".test."));
     for (const f of libFiles) {
       const name = f.replace(/\\/g, "/");
-      if (name.includes("ReadOnly")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });

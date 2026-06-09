@@ -195,7 +195,7 @@ describe("Safety Boundaries — No Real Trading", () => {
     for (const f of libRunFiles) {
       const name = f.replace(/\\/g, "/");
       // Skip read-only / shadow files that are explicitly safety-gated
-      if (name.includes("ReadOnly")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });

@@ -120,3 +120,13 @@ export type {
 export {
   runStabilityRun,
 } from "./stabilityRunEngine";
+
+// Mainnet Read-Only Shadow Types
+export type {
+  MainnetShadowReport,
+} from "./mainnetReadOnlyShadowTypes";
+
+// Mainnet 24h Shadow Types
+export type {
+  Mainnet24hShadowReport,
+} from "./mainnet24hShadowTypes";
