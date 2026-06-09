@@ -35,3 +35,23 @@ export {
   executeEntry,
   validateEntryExecution,
 } from "./autoEntryEngine";
+
+// Semi-3: Auto Monitoring
+export type {
+  AutoMonitoringConfig,
+  MonitoringMetric,
+  MonitoringReport,
+  MonitoringStatus,
+  PositionMonitoringSnapshot,
+} from "./autoMonitoringTypes";
+
+export {
+  buildDeltaMetric,
+  buildFundingMetric,
+  buildPnlMetric,
+  buildReconciliationMetric,
+  buildRiskMetric,
+  calculateOverallMonitoringStatus,
+  generateMonitoringReport,
+  monitorPosition,
+} from "./autoMonitoringEngine";
