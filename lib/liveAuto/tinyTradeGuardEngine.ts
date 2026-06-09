@@ -58,8 +58,7 @@ export function evaluateTinyTradeGuard(
 
   // ── Rule 5: Risk Engine ───────────────────────────
   const riskPassed = context.riskDecision.level !== "critical"
-    && context.riskDecision.action !== "block_entry"
-    && context.riskDecision.action !== "block_all";
+    && context.riskDecision.action !== "block_entry";
   if (!riskPassed) {
     reasons.push(
       `Risk engine blocked: ${context.riskDecision.action} (level=${context.riskDecision.level})`,

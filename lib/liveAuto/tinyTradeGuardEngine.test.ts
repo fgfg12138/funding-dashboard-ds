@@ -126,10 +126,10 @@ describe("TinyTradeGuard — Risk Engine", () => {
     expect(decision.riskPassed).toBe(false);
   });
 
-  it("blocks on block_all action", () => {
+  it("blocks on block_entry action", () => {
     const config = makeConfig({ allowRealExecution: true });
     const context = makePassingContext({
-      riskDecision: { action: "block_all", level: "high", categories: [], reasons: ["test"], generatedAt: 0 },
+      riskDecision: { action: "block_entry", level: "high", categories: [], reasons: ["test"], generatedAt: 0 },
     });
     const decision = evaluateTinyTradeGuard(config, context);
 
@@ -293,7 +293,7 @@ describe("TinyTradeGuard — Multiple Failures", () => {
       reconciliationHasMismatches: true,
       hasManualConfirmation: false,
       accountSyncSuccess: false,
-      riskDecision: { action: "block_all", level: "critical", categories: [], reasons: ["test"], generatedAt: 0 },
+      riskDecision: { action: "block_entry", level: "critical", categories: [], reasons: ["test"], generatedAt: 0 },
       killSwitchDecision: {
         allowed: false,
         action: "block_all",
