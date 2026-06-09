@@ -15,7 +15,7 @@ import type { ArbitragePosition } from "../arbitrage/arbitragePositionTypes";
 import { generateExitSuggestions } from "../semiAuto/exitSuggestionEngine";
 import type { PositionExitSuggestion } from "../semiAuto/exitSuggestionTypes";
 import { executeHedgePlan } from "../hedgeEngine/hedgeEngine";
-import type { HedgeLegPlan, HedgePlan, HedgePlanStatus } from "../hedgeEngine/hedgeEngineTypes";
+import type { HedgeLegPlan, HedgePlan, HedgePlanStatus, OrderTimeInForce } from "../hedgeEngine/hedgeEngineTypes";
 import type { RiskReport } from "../riskMonitoring/riskMonitoringTypes";
 import { evaluateLiveRisk } from "./riskEngine";
 import type { LiveRiskContext, LiveRiskEngineConfig } from "./riskEngineTypes";
@@ -58,7 +58,10 @@ function resolveConfig(c?: LiveAutoExitConfig): Required<LiveAutoExitConfig> {
     allowedExchanges: c?.allowedExchanges ?? DEFAULTS.allowedExchanges,
     maxExitNotionalUsd: c?.maxExitNotionalUsd ?? DEFAULTS.maxExitNotionalUsd,
     requireRiskCheck: c?.requireRiskCheck ?? DEFAULTS.requireRiskCheck,
-  };
+    orderType: c?.orderType,
+    limitPrice: c?.limitPrice,
+    timeInForce: c?.timeInForce,
+  } as Required<LiveAutoExitConfig>;
 }
 
 let _seq = 0;
@@ -227,8 +230,10 @@ export function validateAutoExitCandidate(
  */
 export function buildAutoExitHedgePlan(
   position: ArbitragePosition,
+  config?: LiveAutoExitConfig,
 ): HedgePlan {
   const price = position.perpetualLeg.markPrice || position.spotLeg.markPrice;
+  const cfg = config ? resolveConfig(config) : undefined;
 
   // Build reverse legs
   const legs: HedgeLegPlan[] = [];
@@ -243,6 +248,9 @@ export function buildAutoExitHedgePlan(
     price,
     notionalUsd: position.perpetualLeg.notionalUsd,
     executionPriority: 1,
+    orderType: cfg?.orderType,
+    limitPrice: cfg?.limitPrice,
+    timeInForce: cfg?.timeInForce,
   });
 
   // Spot leg close (priority 2 — closes second)
@@ -255,6 +263,9 @@ export function buildAutoExitHedgePlan(
     price,
     notionalUsd: position.spotLeg.notionalUsd,
     executionPriority: 2,
+    orderType: cfg?.orderType,
+    limitPrice: cfg?.limitPrice,
+    timeInForce: cfg?.timeInForce,
   });
 
   // Calculate delta
@@ -338,7 +349,7 @@ export async function executeAutoExit(
   }
 
   // 3. Build close hedge plan
-  const hedgePlan = buildAutoExitHedgePlan(position);
+  const hedgePlan = buildAutoExitHedgePlan(position, cfg);
 
   // 4. Dry run
   if (cfg.dryRun) {

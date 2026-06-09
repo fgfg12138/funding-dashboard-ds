@@ -10,6 +10,7 @@
 
 import type { HedgePlan, HedgeExecutionResult } from "../hedgeEngine/hedgeEngineTypes";
 import type { PositionExitSuggestion } from "../semiAuto/exitSuggestionTypes";
+import type { OrderTimeInForce } from "../hedgeEngine/hedgeEngineTypes";
 
 // ─── Config ──────────────────────────────────────────────
 
@@ -46,6 +47,15 @@ export type LiveAutoExitConfig = {
 
   /** Whether to require risk check before exit (default true). */
   requireRiskCheck?: boolean;
+
+  /** Order type for close legs (default market). */
+  orderType?: "market" | "limit";
+
+  /** Limit price for limit orders. */
+  limitPrice?: number;
+
+  /** Time-in-force for limit orders (default GTC). */
+  timeInForce?: OrderTimeInForce;
 };
 
 // ─── Exit Candidate ─────────────────────────────────────
