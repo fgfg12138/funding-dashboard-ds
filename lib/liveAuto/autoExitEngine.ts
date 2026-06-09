@@ -185,18 +185,19 @@ export function buildAutoExitHedgePlan(
   // Build reverse legs
   const legs: HedgeLegPlan[] = [];
 
-  // Perpetual leg close (goes first in execution)
+  // Perpetual leg close (priority 1 — closes first to remove leverage risk)
   legs.push({
-    exchange: (position.perpetualLeg.exchange as string).toLowerCase(),
+    exchange: position.perpetualLeg.exchange.toLowerCase(),
     symbol: position.perpetualLeg.symbol,
     legType: "perpetual",
     side: reverseSide(position.perpetualLeg.side),
     quantity: position.perpetualLeg.quantity,
     price,
     notionalUsd: position.perpetualLeg.notionalUsd,
+    executionPriority: 1,
   });
 
-  // Spot leg close (goes second)
+  // Spot leg close (priority 2 — closes second)
   legs.push({
     exchange: position.spotLeg.exchange.toLowerCase(),
     symbol: position.spotLeg.symbol,
@@ -205,6 +206,7 @@ export function buildAutoExitHedgePlan(
     quantity: position.spotLeg.quantity,
     price,
     notionalUsd: position.spotLeg.notionalUsd,
+    executionPriority: 2,
   });
 
   // Calculate delta

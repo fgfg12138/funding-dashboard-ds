@@ -30,6 +30,12 @@ export type HedgeLegPlan = {
   price: number;
   /** Notional value in USD. */
   notionalUsd: number;
+  /**
+   * Execution priority (lower = executed first).
+   * For entry: spot=1, perp=2
+   * For exit:  perp=1, spot=2
+   */
+  executionPriority?: number;
 };
 
 // ─── Hedge Plan ─────────────────────────────────────────

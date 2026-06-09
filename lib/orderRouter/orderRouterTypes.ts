@@ -12,7 +12,30 @@
 export type OrderSide = "buy" | "sell";
 export type OrderType = "market" | "limit";
 export type OrderStatus = "pending" | "open" | "filled" | "cancelled" | "rejected";
-export type ExchangeName = "binance" | "bybit" | "okx";
+export type ExchangeName = string;
+
+// ─── Exchange Capabilities ──────────────────────────────
+
+export interface ExchangeCapabilities {
+  /** Exchange identifier (e.g. "binance", "gate", "hyperliquid"). */
+  exchange: string;
+  /** Whether the exchange supports spot trading. */
+  supportsSpot: boolean;
+  /** Whether the exchange supports perpetual contracts. */
+  supportsPerpetual: boolean;
+  /** Whether the exchange supports margin trading. */
+  supportsMargin: boolean;
+  /** Whether market orders are supported. */
+  supportsMarketOrder: boolean;
+  /** Whether limit orders are supported. */
+  supportsLimitOrder: boolean;
+  /** Whether reduce-only orders are supported. */
+  supportsReduceOnly: boolean;
+  /** Whether post-only orders are supported. */
+  supportsPostOnly: boolean;
+  /** Maximum leverage available. */
+  maxLeverage?: number;
+}
 
 // ─── Unified Order Request ──────────────────────────────
 

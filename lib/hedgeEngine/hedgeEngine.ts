@@ -92,6 +92,7 @@ export function buildSpotPerpHedgePlan(
       quantity,
       price,
       notionalUsd,
+      executionPriority: 1, // spot first for entry
     },
     {
       exchange: perpExchange,
@@ -101,6 +102,7 @@ export function buildSpotPerpHedgePlan(
       quantity,
       price,
       notionalUsd,
+      executionPriority: 2, // perp second for entry
     },
   ];
 
@@ -155,6 +157,7 @@ export function buildPerpPerpSpreadHedgePlan(
       quantity,
       price,
       notionalUsd,
+      executionPriority: 1, // short first for entry
     },
     {
       exchange: longExchange,
@@ -164,6 +167,7 @@ export function buildPerpPerpSpreadHedgePlan(
       quantity,
       price,
       notionalUsd,
+      executionPriority: 2, // long second for entry
     },
   ];
 
@@ -269,22 +273,16 @@ export async function executeHedgePlan(
   const errors: string[] = [];
   let finalStatus: HedgePlanStatus = "executed";
 
-  // Determine execution order:
-  // spot-perp: spot first (long), then perp (short)
-  // perp-perp: short first, then long
+  // Determine execution order by executionPriority (ascending)
   const sortedLegs = [...plan.legs].sort((a, b) => {
-    // Spot legs go first
-    if (a.legType === "spot" && b.legType !== "spot") return -1;
-    if (a.legType !== "spot" && b.legType === "spot") return 1;
-    // Short legs before long legs
-    if (a.side === "short" && b.side === "long") return -1;
-    if (a.side === "long" && b.side === "short") return 1;
-    return 0;
+    const pa = a.executionPriority ?? 99;
+    const pb = b.executionPriority ?? 99;
+    return pa - pb;
   });
 
   for (const leg of sortedLegs) {
     const request: UnifiedOrderRequest = {
-      exchange: leg.exchange as any,
+      exchange: leg.exchange,
       symbol: leg.symbol,
       side: toOrderSide(leg.side),
       type: "market",

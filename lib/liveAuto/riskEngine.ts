@@ -229,7 +229,8 @@ export function evaluateLiveRisk(
 
   // Portfolio risk
   if (context.portfolioReport) {
-    const pr = evaluatePortfolioRisk(context.portfolioReport as any, cfg);
+    const summary = context.portfolioReport.summary;
+    const pr = evaluatePortfolioRisk({ summary }, cfg);
     if (pr.triggered) {
       signals.push({ action: "block_entry", level: pr.level, category: "portfolio", reasons: pr.reasons });
     }

@@ -6,6 +6,7 @@
 
 // Types
 export type {
+  ExchangeCapabilities,
   ExchangeName,
   OrderExecutionResult,
   OrderSide,
@@ -20,8 +21,10 @@ export {
   cancelOrder,
   createOrder,
   getAdapter,
+  getExchangeCapabilities,
   getOrder,
   registerAdapter,
+  registerExchangeCapabilities,
 } from "./orderRouter";
 
 // Adapter interface

@@ -9,6 +9,7 @@
 
 import type { OrderAdapter } from "./adapters/OrderAdapter";
 import type {
+  ExchangeCapabilities,
   ExchangeName,
   OrderExecutionResult,
   UnifiedOrder,
@@ -25,6 +26,29 @@ const ADAPTERS: Record<string, OrderAdapter> = {
   bybit: new MockBybitOrderAdapter(),
   okx: new MockOkxOrderAdapter(),
 };
+
+// ─── Capabilities Registry ──────────────────────────────
+
+const CAPABILITIES: Record<string, ExchangeCapabilities> = {};
+
+/**
+ * Register or update exchange capabilities.
+ *
+ * This is a separate registry from adapters — any exchange can be
+ * registered with capabilities even before an adapter exists.
+ */
+export function registerExchangeCapabilities(caps: ExchangeCapabilities): void {
+  CAPABILITIES[caps.exchange] = caps;
+}
+
+/**
+ * Get capabilities for a given exchange.
+ *
+ * @returns The ExchangeCapabilities, or undefined if not registered.
+ */
+export function getExchangeCapabilities(exchange: string): ExchangeCapabilities | undefined {
+  return CAPABILITIES[exchange];
+}
 
 /**
  * Get the order adapter for a given exchange.
