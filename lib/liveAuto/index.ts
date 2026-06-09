@@ -1,10 +1,10 @@
 /**
- * Live Auto Entry — Barrel export
+ * Live Auto — Barrel export
  *
- * Re-exports all Live-3 types and engine functions.
+ * Re-exports all Live-3 (Entry) and Live-4 (Exit) types and functions.
  */
 
-// Types
+// Live-3: Auto Entry
 export type {
   AutoEntryCandidate,
   AutoEntryReport,
@@ -13,7 +13,6 @@ export type {
   LiveAutoEntryConfig,
 } from "./autoEntryTypes";
 
-// Engine
 export {
   buildAutoEntryHedgePlan,
   executeAutoEntry,
@@ -22,3 +21,21 @@ export {
   selectAutoEntryCandidates,
   validateAutoEntryCandidate,
 } from "./autoEntryEngine";
+
+// Live-4: Auto Exit
+export type {
+  AutoExitCandidate,
+  AutoExitReport,
+  AutoExitResult,
+  AutoExitResultStatus,
+  LiveAutoExitConfig,
+} from "./autoExitTypes";
+
+export {
+  buildAutoExitHedgePlan,
+  executeAutoExit,
+  generateAutoExitReport,
+  runAutoExit,
+  selectAutoExitCandidates,
+  validateAutoExitCandidate,
+} from "./autoExitEngine";
