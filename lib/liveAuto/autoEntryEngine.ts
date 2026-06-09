@@ -56,6 +56,9 @@ function resolveConfig(c?: LiveAutoEntryConfig): Required<LiveAutoEntryConfig> {
     preferredHedgeMode: c?.preferredHedgeMode ?? DEFAULTS.preferredHedgeMode,
     requireRiskCheck: c?.requireRiskCheck ?? DEFAULTS.requireRiskCheck,
     requireCapitalAllocation: c?.requireCapitalAllocation ?? DEFAULTS.requireCapitalAllocation,
+    orderType: c?.orderType,
+    limitPrice: c?.limitPrice,
+    timeInForce: c?.timeInForce,
   } as Required<LiveAutoEntryConfig>;
 }
 
