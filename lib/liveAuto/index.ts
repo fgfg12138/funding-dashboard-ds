@@ -130,3 +130,8 @@ export type {
 export type {
   Mainnet24hShadowReport,
 } from "./mainnet24hShadowTypes";
+
+// Mainnet 7-Day Read-Only Shadow Types
+export type {
+  Mainnet7DayReadOnlyShadowReport,
+} from "./mainnet7DayReadOnlyShadowTypes";
