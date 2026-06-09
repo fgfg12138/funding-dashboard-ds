@@ -39,3 +39,20 @@ export {
   selectAutoExitCandidates,
   validateAutoExitCandidate,
 } from "./autoExitEngine";
+
+// Live-5: Capital Manager
+export type {
+  CapitalDecision,
+  CapitalManagerReport,
+  CapitalState,
+  LiveCapitalManagerConfig,
+} from "./capitalManagerTypes";
+
+export {
+  applyCompounding,
+  calculateAvailableCapital,
+  calculateCapitalState,
+  generateCapitalDecisions,
+  generateCapitalManagerReport,
+  validateCapitalDecision,
+} from "./capitalManagerEngine";
