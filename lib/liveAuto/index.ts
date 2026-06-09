@@ -108,3 +108,15 @@ export type {
 export {
   runShadowRun,
 } from "./shadowRunEngine";
+
+// Stability Run (7-Day Long-Term)
+export type {
+  StabilityCycleResult,
+  StabilityRunConfig,
+  StabilityRunReport,
+  StressScenario,
+} from "./stabilityRunTypes";
+
+export {
+  runStabilityRun,
+} from "./stabilityRunEngine";
