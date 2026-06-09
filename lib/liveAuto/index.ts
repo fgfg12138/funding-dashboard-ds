@@ -97,3 +97,14 @@ export {
   lockKillSwitch,
   unlockKillSwitch,
 } from "./killSwitchEngine";
+
+// Shadow Run
+export type {
+  ShadowRunConfig,
+  ShadowRunCycleResult,
+  ShadowRunReport,
+} from "./shadowRunTypes";
+
+export {
+  runShadowRun,
+} from "./shadowRunEngine";
