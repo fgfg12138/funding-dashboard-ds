@@ -55,3 +55,21 @@ export {
   generateMonitoringReport,
   monitorPosition,
 } from "./autoMonitoringEngine";
+
+// Semi-4: Exit Suggestion
+export type {
+  ExitReason,
+  ExitSuggestionConfig,
+  ExitSuggestionReport,
+  ExitSuggestionSeverity,
+  ExitSuggestionStatus,
+  PositionExitSuggestion,
+} from "./exitSuggestionTypes";
+
+export {
+  buildExitMessage,
+  buildExitReasons,
+  calculateExitSeverity,
+  evaluateExitSuggestion,
+  generateExitSuggestions,
+} from "./exitSuggestionEngine";
