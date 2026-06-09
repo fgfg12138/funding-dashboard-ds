@@ -51,6 +51,11 @@ export {
 export type { BinanceHttpClient, HttpMethod, HttpRequestOptions, HttpResponse } from "./adapters/binance/BinanceHttpClient";
 export { MockBinanceHttpClient } from "./adapters/binance/BinanceHttpClient";
 
+// Binance Real HTTP Client
+export type { BinanceFetchHttpClientConfig } from "./adapters/binance/BinanceFetchHttpClient";
+export { BinanceFetchHttpClient } from "./adapters/binance/BinanceFetchHttpClient";
+export { BinanceHttpError } from "./adapters/binance/BinanceHttpError";
+
 /**
  * Register Binance exchange capabilities for use with the Order Router.
  */
