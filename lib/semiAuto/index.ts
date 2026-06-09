@@ -73,3 +73,21 @@ export {
   evaluateExitSuggestion,
   generateExitSuggestions,
 } from "./exitSuggestionEngine";
+
+// Semi-5: User Close Confirmation
+export type {
+  CloseExecutionAdapter,
+  CloseExecutionConfig,
+  CloseExecutionPlan,
+  CloseExecutionResult,
+  CloseExecutionStatus,
+  CloseLegPlan,
+  MockCloseExecutionAdapter,
+  UserCloseConfirmation,
+} from "./closeConfirmationTypes";
+
+export {
+  buildCloseExecutionPlan,
+  executeClose,
+  validateCloseExecution,
+} from "./closeConfirmationEngine";
