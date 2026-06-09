@@ -232,3 +232,71 @@ describe("edge cases", () => {
     expect(() => buildSpotPerpHedgePlan("BTCUSDT", "binance", "binance", 0, 100_000)).toThrow("Notional");
   });
 });
+
+// ─── Limit Order Support ────────────────────────────────
+
+describe("limit order support", () => {
+  it("default remains market order (no params)", () => {
+    const plan = buildSpotPerpHedgePlan("BTCUSDT", "binance", "binance", 20_000, 100_000);
+    for (const leg of plan.legs) {
+      expect(leg.orderType).toBeUndefined(); // defaults to market at execution
+    }
+  });
+
+  it("buildSpotPerpHedgePlan with limit order params", () => {
+    const plan = buildSpotPerpHedgePlan("BTCUSDT", "binance", "bybit", 20_000, 100_000, {
+      orderType: "limit",
+      limitPrice: 99_000,
+      timeInForce: "GTC",
+    });
+
+    for (const leg of plan.legs) {
+      expect(leg.orderType).toBe("limit");
+      expect(leg.limitPrice).toBe(99_000);
+      expect(leg.timeInForce).toBe("GTC");
+    }
+  });
+
+  it("buildPerpPerpSpreadHedgePlan with limit order params", () => {
+    const plan = buildPerpPerpSpreadHedgePlan("BTCUSDT", "binance", "bybit", 20_000, 100_000, {
+      orderType: "limit",
+      limitPrice: 99_000,
+      timeInForce: "IOC",
+    });
+
+    for (const leg of plan.legs) {
+      expect(leg.orderType).toBe("limit");
+      expect(leg.limitPrice).toBe(99_000);
+      expect(leg.timeInForce).toBe("IOC");
+    }
+  });
+
+  it("executeHedgePlan passes limit order type through Order Router", async () => {
+    const plan = buildSpotPerpHedgePlan("BTCUSDT", "binance", "binance", 20_000, 100_000, {
+      orderType: "limit",
+      limitPrice: 1,
+      timeInForce: "GTC",
+    });
+    const result = await executeHedgePlan(plan, { dryRun: false });
+    expect(result.status).toBe("executed");
+    expect(result.orders.length).toBe(2);
+  });
+
+  it("validateHedgePlan blocks limit orders with no price", () => {
+    const plan = buildSpotPerpHedgePlan("BTCUSDT", "binance", "binance", 20_000, 100_000, {
+      orderType: "limit",
+      limitPrice: 0,
+    });
+    const errors = validateHedgePlan(plan);
+    expect(errors.some((e) => e.includes("limitPrice"))).toBe(true);
+  });
+
+  it("executionPriority order is preserved with limit order params", () => {
+    const plan = buildSpotPerpHedgePlan("BTCUSDT", "binance", "binance", 20_000, 100_000, {
+      orderType: "limit",
+      limitPrice: 99_000,
+    });
+    expect(plan.legs[0].executionPriority).toBe(1);
+    expect(plan.legs[1].executionPriority).toBe(2);
+  });
+});

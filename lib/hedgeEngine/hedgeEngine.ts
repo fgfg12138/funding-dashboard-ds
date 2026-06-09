@@ -1,8 +1,10 @@
 /**
- * Hedge Engine — Live Phase 2
+ * Hedge Engine — Live Phase 2 + Limit Order Patch
  *
  * Builds delta-neutral hedge plans (spot-perp or perp-perp spread)
  * and executes them through the Live-1 Order Router.
+ *
+ * Supports market orders (default) and limit orders with timeInForce.
  *
  * Pure functions — Order Router calls are the only async boundary.
  */
@@ -15,7 +17,19 @@ import type {
   HedgeLegPlan,
   HedgePlan,
   HedgePlanStatus,
+  OrderTimeInForce,
 } from "./hedgeEngineTypes";
+
+// ─── Optional order execution parameters ────────────────
+
+export type OrderExecutionParams = {
+  /** Order type: market (default) or limit. */
+  orderType?: "market" | "limit";
+  /** Time-in-force for limit orders (default GTC). */
+  timeInForce?: OrderTimeInForce;
+  /** Limit price (required when orderType="limit"). */
+  limitPrice?: number;
+};
 
 // ─── Defaults ────────────────────────────────────────────
 
@@ -41,15 +55,27 @@ function resolveConfig(c?: HedgeEngineConfig): Required<HedgeEngineConfig> {
   };
 }
 
+// ─── Helper: apply order params to legs ────────────────
+
+function applyOrderParams(
+  legs: HedgeLegPlan[],
+  params?: OrderExecutionParams,
+): HedgeLegPlan[] {
+  if (!params) return legs;
+  return legs.map((leg) => ({
+    ...leg,
+    orderType: leg.orderType ?? params.orderType,
+    timeInForce: leg.timeInForce ?? params.timeInForce,
+    limitPrice: leg.limitPrice ?? params.limitPrice,
+  }));
+}
+
 // ─── Public API ──────────────────────────────────────────
 
 /**
  * Calculate the net delta of a collection of hedge legs.
  *
  * long = +notionalUsd, short = -notionalUsd
- *
- * @param legs - The hedge legs.
- * @returns The net delta in USD.
  */
 export function calculateHedgeDelta(legs: HedgeLegPlan[]): number {
   return legs.reduce((sum, leg) => {
@@ -69,6 +95,7 @@ export function calculateHedgeDelta(legs: HedgeLegPlan[]): number {
  * @param perpExchange - Exchange for the perpetual leg.
  * @param notionalUsd  - Target notional value per leg.
  * @param price        - Current mark price for quantity calculation.
+ * @param orderParams  - Optional order type / limit price / timeInForce.
  * @returns A HedgePlan with expected delta ≈ 0.
  */
 export function buildSpotPerpHedgePlan(
@@ -77,13 +104,14 @@ export function buildSpotPerpHedgePlan(
   perpExchange: string,
   notionalUsd: number,
   price: number,
+  orderParams?: OrderExecutionParams,
 ): HedgePlan {
   if (price <= 0) throw new Error("Price must be > 0.");
   if (notionalUsd <= 0) throw new Error("Notional must be > 0.");
 
   const quantity = notionalUsd / price;
 
-  const legs: HedgeLegPlan[] = [
+  let legs: HedgeLegPlan[] = [
     {
       exchange: spotExchange,
       symbol,
@@ -105,6 +133,8 @@ export function buildSpotPerpHedgePlan(
       executionPriority: 2, // perp second for entry
     },
   ];
+
+  legs = applyOrderParams(legs, orderParams);
 
   const expectedDeltaUsd = calculateHedgeDelta(legs);
   const maxLegNotional = Math.max(...legs.map((l) => l.notionalUsd));
@@ -134,6 +164,7 @@ export function buildSpotPerpHedgePlan(
  * @param longExchange   - Exchange for the long leg.
  * @param notionalUsd   - Target notional value per leg.
  * @param price         - Current mark price for quantity calculation.
+ * @param orderParams   - Optional order type / limit price / timeInForce.
  * @returns A HedgePlan with expected delta ≈ 0.
  */
 export function buildPerpPerpSpreadHedgePlan(
@@ -142,13 +173,14 @@ export function buildPerpPerpSpreadHedgePlan(
   longExchange: string,
   notionalUsd: number,
   price: number,
+  orderParams?: OrderExecutionParams,
 ): HedgePlan {
   if (price <= 0) throw new Error("Price must be > 0.");
   if (notionalUsd <= 0) throw new Error("Notional must be > 0.");
 
   const quantity = notionalUsd / price;
 
-  const legs: HedgeLegPlan[] = [
+  let legs: HedgeLegPlan[] = [
     {
       exchange: shortExchange,
       symbol,
@@ -171,6 +203,8 @@ export function buildPerpPerpSpreadHedgePlan(
     },
   ];
 
+  legs = applyOrderParams(legs, orderParams);
+
   const expectedDeltaUsd = calculateHedgeDelta(legs);
   const maxLegNotional = Math.max(...legs.map((l) => l.notionalUsd));
   const expectedDeltaPercent = maxLegNotional > 0 ? (expectedDeltaUsd / maxLegNotional) * 100 : 0;
@@ -189,10 +223,6 @@ export function buildPerpPerpSpreadHedgePlan(
 
 /**
  * Validate a hedge plan against configurable thresholds.
- *
- * @param plan   - The hedge plan to validate.
- * @param config - Hedge engine configuration.
- * @returns Array of error messages (empty = valid).
  */
 export function validateHedgePlan(
   plan: HedgePlan,
@@ -218,6 +248,16 @@ export function validateHedgePlan(
     errors.push(`Total notional $${totalNotional.toLocaleString()} exceeds max $${cfg.maxNotionalUsd.toLocaleString()}.`);
   }
 
+  // 4. Limit order validation
+  for (const leg of plan.legs) {
+    if (leg.orderType === "limit") {
+      const limitPrice = leg.limitPrice ?? leg.price;
+      if (!limitPrice || limitPrice <= 0) {
+        errors.push(`Limit order requires limitPrice > 0 for ${leg.legType} leg.`);
+      }
+    }
+  }
+
   return errors;
 }
 
@@ -233,9 +273,9 @@ function toOrderSide(side: "long" | "short"): "buy" | "sell" {
 /**
  * Execute a hedge plan through the Live-1 Order Router.
  *
- * Execution order:
- *   spot-perp: spot first (avoid naked short), then perp
- *   perp-perp: short exchange first, then long exchange
+ * Supports both market and limit orders based on leg.orderType.
+ * When orderType="limit", uses limitPrice (falls back to leg.price)
+ * and timeInForce (defaults to GTC).
  *
  * @param plan   - The hedge plan to execute.
  * @param config - Execution configuration.
@@ -281,13 +321,20 @@ export async function executeHedgePlan(
   });
 
   for (const leg of sortedLegs) {
+    const orderType = leg.orderType ?? "market";
     const request: UnifiedOrderRequest = {
       exchange: leg.exchange,
       symbol: leg.symbol,
       side: toOrderSide(leg.side),
-      type: "market",
+      type: orderType,
       quantity: leg.quantity,
     };
+
+    // Limit order fields
+    if (orderType === "limit") {
+      const limitPrice = leg.limitPrice ?? leg.price;
+      request.price = limitPrice;
+    }
 
     try {
       const result: OrderExecutionResult = await routerCreateOrder(request);

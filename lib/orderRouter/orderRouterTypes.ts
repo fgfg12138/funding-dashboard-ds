@@ -52,6 +52,8 @@ export type UnifiedOrderRequest = {
   quantity: number;
   /** Limit price (required for limit orders). */
   price?: number;
+  /** Time-in-force for limit orders: GTC (default), IOC, FOK. */
+  timeInForce?: "GTC" | "IOC" | "FOK";
   /** Client-assigned order ID for reconciliation. */
   clientOrderId?: string;
 };

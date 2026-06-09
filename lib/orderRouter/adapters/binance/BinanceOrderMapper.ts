@@ -52,6 +52,10 @@ export type BinanceNewOrderParams = Record<string, string | number | undefined>;
  * Map a UnifiedOrderRequest to Binance REST API POST /fapi/v1/order parameters.
  */
 export function mapUnifiedOrderRequestToBinance(request: UnifiedOrderRequest): BinanceNewOrderParams {
+  if (request.type === "limit" && (request.price === undefined || request.price <= 0)) {
+    throw new Error("Limit order requires a positive price.");
+  }
+
   const params: BinanceNewOrderParams = {
     symbol: request.symbol,
     side: mapSideToBinance(request.side),
@@ -61,9 +65,9 @@ export function mapUnifiedOrderRequestToBinance(request: UnifiedOrderRequest): B
     timestamp: Date.now(),
   };
 
-  if (request.type === "limit" && request.price !== undefined) {
+  if (request.type === "limit") {
     params.price = request.price;
-    params.timeInForce = "GTC"; // Good-Til-Cancelled for limit orders
+    params.timeInForce = request.timeInForce ?? "GTC";
   }
 
   return params;

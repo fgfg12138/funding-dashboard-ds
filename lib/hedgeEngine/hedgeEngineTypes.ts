@@ -12,6 +12,7 @@
 export type HedgeLegType = "spot" | "perpetual";
 export type HedgeSide = "long" | "short";
 export type HedgePlanStatus = "planned" | "executed" | "failed" | "partial";
+export type OrderTimeInForce = "GTC" | "IOC" | "FOK";
 
 // ─── Single Leg Plan ────────────────────────────────────
 
@@ -36,6 +37,12 @@ export type HedgeLegPlan = {
    * For exit:  perp=1, spot=2
    */
   executionPriority?: number;
+  /** Order type: market (default) or limit. */
+  orderType?: "market" | "limit";
+  /** Time-in-force for limit orders (default GTC). */
+  timeInForce?: OrderTimeInForce;
+  /** Limit price (required when orderType="limit"). Must be > 0. */
+  limitPrice?: number;
 };
 
 // ─── Hedge Plan ─────────────────────────────────────────

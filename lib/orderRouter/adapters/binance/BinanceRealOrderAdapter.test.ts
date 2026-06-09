@@ -182,6 +182,18 @@ describe("BinanceOrderMapper", () => {
     expect(params.timeInForce).toBeUndefined();
   });
 
+  it("limit order uses custom timeInForce from request", () => {
+    const req = makeRequest({ type: "limit", price: 50000 });
+    req.timeInForce = "IOC";
+    const params = mapUnifiedOrderRequestToBinance(req);
+    expect(params.timeInForce).toBe("IOC");
+  });
+
+  it("limit order without price throws error", () => {
+    const req = makeRequest({ type: "limit", price: undefined });
+    expect(() => mapUnifiedOrderRequestToBinance(req)).toThrow("Limit order requires");
+  });
+
   it("maps Binance response to UnifiedOrder", () => {
     const binance = makeBinanceOrderResponse({
       symbol: "ETHUSDT",

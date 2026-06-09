@@ -13,6 +13,7 @@ export type {
   HedgePlan,
   HedgePlanStatus,
   HedgeSide,
+  OrderTimeInForce,
 } from "./hedgeEngineTypes";
 
 // Engine
