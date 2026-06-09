@@ -135,3 +135,14 @@ export type {
 export type {
   Mainnet7DayReadOnlyShadowReport,
 } from "./mainnet7DayReadOnlyShadowTypes";
+
+// Tiny Trade Guard — Semi-Auto Safety Gate
+export type {
+  TinyTradeDecision,
+  TinyTradeGuardConfig,
+  TinyTradeGuardContext,
+} from "./tinyTradeGuardTypes";
+
+export {
+  evaluateTinyTradeGuard,
+} from "./tinyTradeGuardEngine";
