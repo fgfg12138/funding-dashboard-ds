@@ -9,6 +9,7 @@
  */
 
 import type { HedgePlan, HedgeExecutionResult } from "../hedgeEngine/hedgeEngineTypes";
+import type { OrderTimeInForce } from "../hedgeEngine/hedgeEngineTypes";
 
 // ─── Config ──────────────────────────────────────────────
 
@@ -45,6 +46,15 @@ export type LiveAutoEntryConfig = {
 
   /** Whether to require capital allocation (default true). */
   requireCapitalAllocation?: boolean;
+
+  /** Order type for hedge legs (default market). Use "limit" for safety testing. */
+  orderType?: "market" | "limit";
+
+  /** Limit price for limit orders (required when orderType="limit"). */
+  limitPrice?: number;
+
+  /** Time-in-force for limit orders (default GTC). */
+  timeInForce?: OrderTimeInForce;
 };
 
 // ─── Candidate ──────────────────────────────────────────

@@ -13,6 +13,7 @@
 
 import { buildSpotPerpHedgePlan, buildPerpPerpSpreadHedgePlan, executeHedgePlan } from "../hedgeEngine/hedgeEngine";
 import type { HedgePlan, HedgePlanStatus } from "../hedgeEngine/hedgeEngineTypes";
+import type { OrderExecutionParams } from "../hedgeEngine/hedgeEngine";
 import type { RiskReport } from "../riskMonitoring/riskMonitoringTypes";
 import { evaluateLiveRisk } from "./riskEngine";
 import type { LiveRiskContext, LiveRiskEngineConfig } from "./riskEngineTypes";
@@ -55,7 +56,7 @@ function resolveConfig(c?: LiveAutoEntryConfig): Required<LiveAutoEntryConfig> {
     preferredHedgeMode: c?.preferredHedgeMode ?? DEFAULTS.preferredHedgeMode,
     requireRiskCheck: c?.requireRiskCheck ?? DEFAULTS.requireRiskCheck,
     requireCapitalAllocation: c?.requireCapitalAllocation ?? DEFAULTS.requireCapitalAllocation,
-  };
+  } as Required<LiveAutoEntryConfig>;
 }
 
 // ─── Risk Level Severity Map ─────────────────────────────
@@ -242,6 +243,16 @@ export function buildAutoEntryHedgePlan(
 ): HedgePlan {
   const cfg = resolveConfig(config);
 
+  // Build order execution params from config (optional fields, read directly)
+  const orderParams: OrderExecutionParams | undefined =
+    config.orderType !== undefined
+      ? {
+          orderType: config.orderType,
+          limitPrice: config.limitPrice,
+          timeInForce: config.timeInForce,
+        }
+      : undefined;
+
   if (cfg.preferredHedgeMode === "perp_perp") {
     return buildPerpPerpSpreadHedgePlan(
       candidate.symbol,
@@ -249,6 +260,7 @@ export function buildAutoEntryHedgePlan(
       candidate.secondaryExchange!,
       candidate.allocatedCapitalUsd,
       candidate.markPrice,
+      orderParams,
     );
   }
 
@@ -259,6 +271,7 @@ export function buildAutoEntryHedgePlan(
     candidate.exchange!,
     candidate.allocatedCapitalUsd,
     candidate.markPrice,
+    orderParams,
   );
 }
 
