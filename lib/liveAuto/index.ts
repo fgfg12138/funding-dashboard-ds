@@ -146,3 +146,8 @@ export type {
 export {
   evaluateTinyTradeGuard,
 } from "./tinyTradeGuardEngine";
+
+// Tiny Dry Run — Semi-Auto Dry Run Planning
+export type {
+  TinyDryRunReport,
+} from "./tinyDryRunTypes";
