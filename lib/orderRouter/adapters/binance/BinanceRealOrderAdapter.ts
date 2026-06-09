@@ -122,12 +122,12 @@ export class BinanceRealOrderAdapter implements OrderAdapter {
 
     addSignature(signedParams, this.config.secret);
 
-    // Execute
+    // Execute (params already signed above — pass signed: false)
     const response = await this.httpClient.request({
       method: "POST",
       path: "/fapi/v1/order",
       params: signedParams,
-      signed: true,
+      signed: false,
       apiKey: this.config.apiKey,
       secret: this.config.secret,
     });
@@ -171,7 +171,7 @@ export class BinanceRealOrderAdapter implements OrderAdapter {
       method: "DELETE",
       path: "/fapi/v1/order",
       params,
-      signed: true,
+      signed: false,
       apiKey: this.config.apiKey,
       secret: this.config.secret,
     });
@@ -211,7 +211,7 @@ export class BinanceRealOrderAdapter implements OrderAdapter {
       method: "GET",
       path: "/fapi/v1/order",
       params,
-      signed: true,
+      signed: false,
       apiKey: this.config.apiKey,
       secret: this.config.secret,
     });

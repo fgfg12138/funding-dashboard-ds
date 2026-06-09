@@ -23,10 +23,11 @@ import { BinanceRealOrderAdapter } from "./BinanceRealOrderAdapter";
 const RUN_SMOKE = process.env.RUN_BINANCE_TESTNET_SMOKE === "true";
 const API_KEY = process.env.BINANCE_TESTNET_API_KEY ?? "";
 const API_SECRET = process.env.BINANCE_TESTNET_API_SECRET ?? "";
-const testOrSkip = RUN_SMOKE ? it : it.skip;
+
+const describeOrSkip = RUN_SMOKE ? describe : describe.skip;
 
 // Skip by default — only runs when RUN_BINANCE_TESTNET_SMOKE=true
-describe.skip("Binance Testnet Smoke (enable via env RUN_BINANCE_TESTNET_SMOKE=true)", () => {
+describeOrSkip("Binance Testnet Smoke", () => {
   const client = new BinanceFetchHttpClient({
     apiKey: API_KEY,
     secret: API_SECRET,
@@ -98,5 +99,51 @@ describe.skip("Binance Testnet Smoke (enable via env RUN_BINANCE_TESTNET_SMOKE=t
     });
     expect(response.statusCode).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  // ─── Full lifecycle: create LIMIT → get → cancel → get cancelled ──
+
+  let createdOrderId: string | undefined;
+
+  it("createOrder: places a LIMIT order far from market price", async () => {
+    // Use a price far from market to avoid immediate fill
+    // qty=0.05 × price=1000 → notional=50, meets Binance min notional of 50
+    const order = await adapter.createOrder({
+      exchange: "binance",
+      symbol: "BTCUSDT",
+      side: "buy",
+      type: "limit",
+      quantity: 0.05,
+      price: 1000, // far below market → won't fill
+    });
+
+    expect(order.orderId).toBeTruthy();
+    expect(order.status).toBe("open");
+    expect(order.side).toBe("buy");
+    expect(order.type).toBe("limit");
+    expect(order.quantity).toBe(0.05);
+    createdOrderId = order.orderId;
+  });
+
+  it("getOrder: can retrieve the created order", async () => {
+    expect(createdOrderId).toBeDefined();
+    const order = await adapter.getOrder(createdOrderId!, "BTCUSDT");
+
+    expect(order.orderId).toBe(createdOrderId);
+    expect(order.status).toBe("open");
+  });
+
+  it("cancelOrder: cancels the created order", async () => {
+    expect(createdOrderId).toBeDefined();
+    const order = await adapter.cancelOrder(createdOrderId!, "BTCUSDT");
+
+    expect(order.status).toBe("cancelled");
+  });
+
+  it("getOrder: confirms the order is now cancelled", async () => {
+    expect(createdOrderId).toBeDefined();
+    const order = await adapter.getOrder(createdOrderId!, "BTCUSDT");
+
+    expect(order.status).toBe("cancelled");
   });
 });
