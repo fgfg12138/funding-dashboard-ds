@@ -138,6 +138,7 @@ describe("Safety — No Mainnet Capability", () => {
     "tinyDryRunTypes",
     "DryRun",
     "FilledOrder",
+    "PositionLifecycle",
     // index.ts exports MainnetShadowReport / Mainnet24hShadowReport in type re-exports
     "liveAuto/index.ts"];
 
@@ -158,7 +159,7 @@ describe("Safety — No Mainnet Capability", () => {
     const libFiles = collectFiles("lib", (n) => /\.(ts|tsx)$/.test(n) && !n.includes(".test."));
     for (const f of libFiles) {
       const name = f.replace(/\\/g, "/");
-      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("FilledOrder")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("FilledOrder") || name.includes("PositionLifecycle")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });

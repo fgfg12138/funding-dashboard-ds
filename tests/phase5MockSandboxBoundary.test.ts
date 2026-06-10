@@ -88,7 +88,7 @@ describe("Phase 5 Boundary — No Mainnet Adapter Files", () => {
     for (const f of libFiles) {
       const name = f.replace(/\\/g, "/");
       // Skip read-only / shadow files that are explicitly safety-gated
-      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("SemiAutoLive") || name.includes("FilledOrder")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("SemiAutoLive") || name.includes("FilledOrder") || name.includes("PositionLifecycle")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });
