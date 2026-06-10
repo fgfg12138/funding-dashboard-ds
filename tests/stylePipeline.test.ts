@@ -36,6 +36,7 @@ describe("style pipeline", () => {
     expect(APP_NAV_ITEMS.map((item) => item.label)).toEqual([
       // 生产控制台
       "生产控制台",
+      "本地测试指南",
       // 数据看板
       "机会总览",
       "资金费率看板",

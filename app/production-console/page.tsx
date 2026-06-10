@@ -128,6 +128,33 @@ export default function ProductionConsolePage() {
         </div>
       </section>
 
+      {/* ── Tester Checklist ── */}
+      <section className="border border-slate-800 border-cyan-800/40 bg-slate-950/60">
+        <div className="border-b border-slate-800 px-4 py-2">
+          <h2 className="text-sm font-semibold text-cyan-200">📋 测试者检查清单</h2>
+        </div>
+        <div className="grid gap-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["SystemBanner 正常显示", "页面顶部显示 commit、Key 状态、Safety 指示", true],
+            ["Binance 显示主网验证", "交易所验证状态区 Binance → ✅ 主网验证", true],
+            ["其他交易所 = Foundation", "Bybit / OKX 等显示 Foundation（灰色）", true],
+            ["Real Orders 已关闭", "系统状态「实盘执行」= 🔒 已禁用", true],
+            ["Kill Switch 可见", "系统状态「Kill Switch」= 🛡️ 活跃或文字显示", true],
+            ["持仓/挂单为 0", "持仓 = 0，挂单 = 0", true],
+            ["无危险文案", "页面无「开始交易」「自动交易开启」", true],
+            ["只读标注可见", "Banner 右侧始终显示「只读 / 不交易」", true],
+          ].map(([label, detail, ok]) => (
+            <div key={String(label)} className="flex items-start gap-2 border border-slate-800 bg-slate-950/40 px-3 py-2">
+              <span className={ok ? "mt-0.5 text-emerald-400" : "mt-0.5 text-slate-600"}>{ok ? "✅" : "⬜"}</span>
+              <div>
+                <p className="text-xs font-medium text-slate-200">{String(label)}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{String(detail)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── Environment Info ── */}
       <section className="border border-slate-800 bg-slate-950/60">
         <div className="border-b border-slate-800 px-4 py-2">

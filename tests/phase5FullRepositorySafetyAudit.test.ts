@@ -144,6 +144,7 @@ describe("Safety — No Mainnet Capability", () => {
     "exchangeRegistry",
     "exchangeRegistryTypes",
     "production-console",
+    "local-test-guide",
     // index.ts exports MainnetShadowReport / Mainnet24hShadowReport in type re-exports
     "liveAuto/index.ts"];
 
