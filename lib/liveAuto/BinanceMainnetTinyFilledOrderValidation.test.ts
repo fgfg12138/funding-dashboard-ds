@@ -9,7 +9,7 @@
  * SAFETY:
  *   - REQUIRES: CONFIRM_MAINNET_TINY_TRADE=YES_I_UNDERSTAND_THIS_USES_REAL_MONEY
  *   - Only LIMIT GTC orders (never MARKET)
- *   - Max notional <= 10 USDT
+ *   - Max notional <= 6 USDT
  *   - All 11 pre-safety checks before any order
  *   - 30-second fill timeout with graceful cancellation
  *   - No automatic recovery on close failure
@@ -38,7 +38,7 @@ const HAS_ALL = API_KEY.length > 0 && API_SECRET.length > 0 && RUN && CONFIRM ==
 
 const BASE_URL = "https://fapi.binance.com";
 const CANDIDATE_SYMBOLS = ["SOLUSDT", "ETHUSDT", "BTCUSDT"];
-const MAX_POSITION_USD = 10;
+const MAX_POSITION_USD = 6;
 const POLL_INTERVAL_MS = 2000;
 const FILL_TIMEOUT_MS = 30_000;
 
@@ -70,6 +70,21 @@ function applyLotSize(qty: number, stepSize: number, minQty: number, maxQty: num
   if (stepped < minQty) return minQty;
   if (stepped > maxQty) return maxQty;
   return stepped;
+}
+
+/** After applying LOT_SIZE, if notional < minNotional, bump qty by one step. */
+function bumpToMinNotional(qty: number, price: number, stepSize: number, minNotional: number, maxQty: number): number {
+  let result = qty;
+  while (result * price < minNotional && result < maxQty) {
+    result = Number((result + stepSize).toFixed(10));
+    if (result > maxQty * 2) break;
+  }
+  // Add one extra step for safety (mapper/handling differences)
+  const extra = Number((result + stepSize).toFixed(10));
+  if (extra <= maxQty && extra * price <= 6) {
+    result = extra;
+  }
+  return result;
 }
 
 function isFiniteNumber(v: unknown): v is number {
@@ -268,11 +283,12 @@ describeOrSkip("A. Pre-Safety Checks", () => {
     // Entry: BUY LIMIT slightly above best ask (to fill quickly)
     // Use best ask + 0.1%, rounded to tickSize
     const entryPrice = roundPrice(bestAsk * 1.001, tickSize);
-    // Quantity to target ~$9 notional (under $10, above minNotional)
-    const targetNotional = Math.min(9, maxQty * entryPrice);
+    // Quantity to target ~$6 notional (above minNotional, within $6 max)
+    const targetNotional = Math.min(6, maxQty * entryPrice);
     const rawQty = targetNotional / entryPrice;
     const qty = applyLotSize(rawQty, stepSize, minQty, maxQty);
-    const computedNotional = qty * entryPrice;
+    const bumpedQty = bumpToMinNotional(qty, entryPrice, stepSize, minNotional, maxQty);
+    const computedNotional = bumpedQty * entryPrice;
 
     expect(computedNotional).toBeGreaterThanOrEqual(minNotional);
     expect(computedNotional).toBeLessThanOrEqual(MAX_POSITION_USD);
@@ -282,7 +298,7 @@ describeOrSkip("A. Pre-Safety Checks", () => {
       side: "buy",
       type: "limit",
       timeInForce: "GTC",
-      quantity: qty,
+      quantity: bumpedQty,
       price: entryPrice,
       notional: computedNotional,
       tickSize,
@@ -294,7 +310,7 @@ describeOrSkip("A. Pre-Safety Checks", () => {
     console.log(`      Symbol:       ${selectedSymbol}`);
     console.log(`      Side:         BUY`);
     console.log(`      Type:         LIMIT GTC`);
-    console.log(`      Quantity:     ${qty}`);
+    console.log(`      Quantity:     ${bumpedQty}`);
     console.log(`      Price:        $${entryPrice.toFixed(2)}`);
     console.log(`      Notional:     $${computedNotional.toFixed(2)}`);
     console.log(`      MinNotional:  $${minNotional}`);
@@ -419,15 +435,16 @@ describeOrSkip("B. Order Lifecycle", () => {
 
     // Entry price: best ask + 0.1%
     const entryPrice = roundPrice(bestAsk * 1.001, tickSize);
-    const targetNotional = Math.min(9, maxQty * entryPrice);
+    const targetNotional = Math.min(6, maxQty * entryPrice);
     const qty = applyLotSize(targetNotional / entryPrice, stepSize, minQty, maxQty);
-    const notional = qty * entryPrice;
+    const bumpedQty = bumpToMinNotional(qty, entryPrice, stepSize, minNotional, maxQty);
+    const notional = bumpedQty * entryPrice;
     expect(notional).toBeLessThanOrEqual(MAX_POSITION_USD);
     expect(notional).toBeGreaterThanOrEqual(minNotional);
 
-    orderPlan = { symbol, side: "buy", type: "limit", timeInForce: "GTC", quantity: qty, price: entryPrice, notional, tickSize, stepSize, minNotional };
+    orderPlan = { symbol, side: "buy", type: "limit", timeInForce: "GTC", quantity: bumpedQty, price: entryPrice, notional, tickSize, stepSize, minNotional };
 
-    console.log(`  🚀 Creating: BUY ${qty} ${symbol} @ $${entryPrice.toFixed(2)} = $${notional.toFixed(2)}`);
+    console.log(`  🚀 Creating: BUY ${bumpedQty} ${symbol} @ $${entryPrice.toFixed(2)} = $${notional.toFixed(2)}`);
 
     const order = await adapter.createOrder({
       exchange: "binance",
