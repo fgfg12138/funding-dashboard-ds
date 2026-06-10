@@ -18,6 +18,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
   { href: "/alpha", label: "Alpha发现" },
   // ── 研究分析 ──
   { href: "/factors", label: "因子研究" },
+  { href: "/spread-opportunities", label: "跨所套利" },
   { href: "/research", label: "机会验证" },
   { href: "/simulation", label: "模拟回测" },
   // ── 策略执行 ──
