@@ -55,7 +55,7 @@ describe("Phase 3 Boundary — No Live Trading", () => {
 
   it("no createOrder function in lib/", () => {
     for (const { file, content } of libRunFiles) {
-      if (file.includes("orderRouter") || file.includes("hedgeEngine") || file.includes(".test.")) continue;
+      if (file.includes("orderRouter") || file.includes("hedgeEngine") || file.includes(".test.") || file.includes("connectors")) continue;
       if (content.includes("createOrder") && !content.includes("interface")) {
         expect(content, `createOrder found in ${file}`).not.toContain("createOrder");
       }

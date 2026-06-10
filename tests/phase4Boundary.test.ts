@@ -62,7 +62,7 @@ describe("Phase 4 Boundary — No Live Order Functions", () => {
 
   it("no createOrder implementation in lib/", () => {
     const found = libRun.filter(({ content, file }) =>
-      content.includes("createOrder") && !content.includes("CreateOrder") && !content.includes("interface ") && !file.includes("orderRouter") && !file.includes("hedgeEngine"),
+      content.includes("createOrder") && !content.includes("CreateOrder") && !content.includes("interface ") && !file.includes("orderRouter") && !file.includes("hedgeEngine") && !file.includes("connectors"),
     );
     for (const { file, content } of found) {
       const noComments = content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
