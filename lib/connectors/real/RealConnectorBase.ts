@@ -36,7 +36,14 @@ export abstract class RealConnectorBase implements ExchangeConnector {
 
   // Cached trading rules (refreshed on connect)
   private _tradingRules: TradingRule[] | null = null;
-  private _health: ConnectorHealth = { exchangeId: this.exchangeId, status: "healthy", updatedAt: Date.now() };
+  private _health!: ConnectorHealth;
+
+  protected ensureHealth(): ConnectorHealth {
+    if (!this._health) {
+      this._health = { exchangeId: this.exchangeId, status: "healthy", updatedAt: Date.now() };
+    }
+    return this._health;
+  }
 
   // ── HTTP Helper ───────────────────────────────────
 
