@@ -235,7 +235,7 @@ export function closeSpreadPaperPosition(
     status: "closed",
     closedAt: state.currentTime,
     holdingHours: (state.currentTime - position.openedAt) / (3600 * 1000),
-    metadata: { exitReason: reason.type, exitDetail: reason.detail },
+    metadata: { exitReason: reason.type, exitDetail: "detail" in reason ? reason.detail : "" },
   };
 
   const newState: SpreadPaperTraderState = {
