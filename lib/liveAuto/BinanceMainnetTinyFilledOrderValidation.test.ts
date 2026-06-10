@@ -50,12 +50,19 @@ function sleep(ms: number): Promise<void> {
 
 function roundToStep(value: number, step: number): number {
   if (step <= 0) return value;
-  return Math.floor(value / step) * step;
+  // Count decimal places in step (e.g. 0.01 → 2, 0.001 → 3)
+  const stepStr = String(step);
+  const decimals = stepStr.includes(".") ? stepStr.split(".")[1].length : 0;
+  const stepped = Math.floor(value / step) * step;
+  return Number(stepped.toFixed(decimals));
 }
 
 function roundPrice(value: number, tick: number): number {
   if (tick <= 0) return value;
-  return Math.round(value / tick) * tick;
+  const tickStr = String(tick);
+  const decimals = tickStr.includes(".") ? tickStr.split(".")[1].length : 0;
+  const rounded = Math.round(value / tick) * tick;
+  return Number(rounded.toFixed(decimals));
 }
 
 function applyLotSize(qty: number, stepSize: number, minQty: number, maxQty: number): number {
