@@ -15,7 +15,7 @@ export type TinyFilledOrderConfig = {
 
 export const DEFAULT_TINY_FILLED_ORDER_CONFIG: TinyFilledOrderConfig = {
   maxCapitalUsd: 100,
-  maxPositionUsd: 50,
+  maxPositionUsd: 10,
   maxOpenPositions: 1,
 };
 

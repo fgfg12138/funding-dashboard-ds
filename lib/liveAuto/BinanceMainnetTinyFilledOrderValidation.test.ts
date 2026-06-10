@@ -9,7 +9,7 @@
  * SAFETY:
  *   - REQUIRES: CONFIRM_MAINNET_TINY_TRADE=YES_I_UNDERSTAND_THIS_USES_REAL_MONEY
  *   - Only LIMIT GTC orders (never MARKET)
- *   - Max notional <= 50 USDT
+ *   - Max notional <= 10 USDT
  *   - All 11 pre-safety checks before any order
  *   - 30-second fill timeout with graceful cancellation
  *   - No automatic recovery on close failure
@@ -38,7 +38,7 @@ const HAS_ALL = API_KEY.length > 0 && API_SECRET.length > 0 && RUN && CONFIRM ==
 
 const BASE_URL = "https://fapi.binance.com";
 const CANDIDATE_SYMBOLS = ["SOLUSDT", "ETHUSDT", "BTCUSDT"];
-const MAX_POSITION_USD = 50;
+const MAX_POSITION_USD = 10;
 const POLL_INTERVAL_MS = 2000;
 const FILL_TIMEOUT_MS = 30_000;
 
@@ -268,8 +268,8 @@ describeOrSkip("A. Pre-Safety Checks", () => {
     // Entry: BUY LIMIT slightly above best ask (to fill quickly)
     // Use best ask + 0.1%, rounded to tickSize
     const entryPrice = roundPrice(bestAsk * 1.001, tickSize);
-    // Quantity to target ~$45 notional (under $50, above minNotional)
-    const targetNotional = Math.min(45, maxQty * entryPrice);
+    // Quantity to target ~$9 notional (under $10, above minNotional)
+    const targetNotional = Math.min(9, maxQty * entryPrice);
     const rawQty = targetNotional / entryPrice;
     const qty = applyLotSize(rawQty, stepSize, minQty, maxQty);
     const computedNotional = qty * entryPrice;
@@ -419,7 +419,7 @@ describeOrSkip("B. Order Lifecycle", () => {
 
     // Entry price: best ask + 0.1%
     const entryPrice = roundPrice(bestAsk * 1.001, tickSize);
-    const targetNotional = Math.min(45, maxQty * entryPrice);
+    const targetNotional = Math.min(9, maxQty * entryPrice);
     const qty = applyLotSize(targetNotional / entryPrice, stepSize, minQty, maxQty);
     const notional = qty * entryPrice;
     expect(notional).toBeLessThanOrEqual(MAX_POSITION_USD);
