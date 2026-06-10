@@ -7,6 +7,7 @@ describe("APP_NAV_ITEMS", () => {
       // 生产控制台
       { href: "/production-console", label: "生产控制台" },
       { href: "/local-test-guide", label: "本地测试指南" },
+      { href: "/local-feedback", label: "本地反馈" },
       // 数据看板
       { href: "/opportunities", label: "机会总览" },
       { href: "/dashboard", label: "资金费率看板" },
