@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { RiskBadge, ScoreBadge, SkeletonRows, SkeletonStatCards, StatCard } from "@/components/ui/dashboard";
+import { ExchangeTierBadge, RiskBadge, ScoreBadge, SkeletonRows, SkeletonStatCards, StatCard } from "@/components/ui/dashboard";
 import type { ApiResponse } from "@/lib/api";
 import { DASHBOARD_MODULES, getDashboardModuleConfig, parseDashboardModule, type DashboardModule } from "@/lib/dashboard/dashboardModule";
 import { formatExchangeCoverage, getExchangeCoverageTitle } from "@/lib/exchanges/exchangeCoverage";
@@ -16,8 +16,10 @@ import type {
   ExchangeName,
   SpotPerpOpportunity
 } from "@/lib/exchanges/types";
+import { listSupportedExchanges } from "@/lib/exchangeRegistry/exchangeRegistry";
 
-const EXCHANGES: ExchangeName[] = ["Binance", "OKX", "Bybit"];
+const REGISTRY_NAMES = listSupportedExchanges().map((id) => id.charAt(0).toUpperCase() + id.slice(1)) as ExchangeName[];
+const EXCHANGES: ExchangeName[] = REGISTRY_NAMES;
 const EXCHANGE_COVERAGE_OPTIONS = [0, 2, 3, 4, 5, 6, 8];
 type DashboardSortKey = "score" | "annualizedSpread" | "annualizedRate" | "fundingRate" | "volume24h" | "openInterestUsd" | "exchangeCoverage" | "nextFundingTime" | "priceSpread";
 const DASHBOARD_SORTS: DashboardSortKey[] = ["score", "annualizedSpread", "annualizedRate", "fundingRate", "volume24h", "openInterestUsd", "exchangeCoverage", "nextFundingTime", "priceSpread"];

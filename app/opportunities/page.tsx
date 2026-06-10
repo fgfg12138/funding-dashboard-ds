@@ -7,6 +7,7 @@ import { PageShell } from "@/components/PageShell";
 import {
   DataTableShell,
   ExchangeBadge,
+  ExchangeTierBadge,
   FilterPanel,
   RiskBadge,
   ScoreBadge,
@@ -24,6 +25,7 @@ import type { ExchangeName } from "@/lib/exchanges/types";
 import type { UnifiedOpportunity, UnifiedOpportunityFilters, UnifiedOpportunitySortBy, UnifiedOpportunityType } from "@/lib/opportunities/types";
 import { filterUnifiedOpportunities, isHighRiskUnifiedOpportunity, isRecommendedUnifiedOpportunity } from "@/lib/opportunities/unifiedOpportunities";
 import { applySort, parseSortState, sortIndicator, toggleSortState, type SortOrder } from "@/lib/tableSort/tableSort";
+import { listSupportedExchanges } from "@/lib/exchangeRegistry/exchangeRegistry";
 
 type SourceSnapshotMeta = {
   fundingMarketCount: number;
@@ -46,7 +48,8 @@ type OpportunitiesApiResponse = {
 type QuickMode = "all" | UnifiedOpportunityType | "recommended" | "highRisk";
 
 const TYPES: Array<"all" | UnifiedOpportunityType> = ["all", "CrossExchange", "SpotPerp", "Basis"];
-const EXCHANGES: Array<"all" | ExchangeName> = ["all", "Binance", "OKX", "Bybit"];
+const REGISTRY_EXCHANGES = listSupportedExchanges().map((id) => id.charAt(0).toUpperCase() + id.slice(1)) as ExchangeName[];
+const EXCHANGES: Array<"all" | ExchangeName> = ["all", ...REGISTRY_EXCHANGES];
 const QUICK_MODES: Array<{ label: string; value: QuickMode }> = [
   { label: "全部", value: "all" },
   { label: "跨所费率差", value: "CrossExchange" },
@@ -491,9 +494,12 @@ function RiskTags({ tags }: { tags: string[] }) {
 
 function ExchangePair({ row }: { row: UnifiedOpportunity }) {
   return (
-    <div className="flex max-w-[220px] flex-wrap gap-1">
+    <div className="flex max-w-[220px] flex-wrap items-center gap-1">
       <ExchangeBadge label={row.primaryExchange} />
-      {row.secondaryExchange ? <ExchangeBadge label={row.secondaryExchange} /> : null}
+      <ExchangeTierBadge exchangeId={row.primaryExchange} />
+      {row.secondaryExchange ? (
+        <><ExchangeBadge label={row.secondaryExchange} /><ExchangeTierBadge exchangeId={row.secondaryExchange} /></>
+      ) : null}
     </div>
   );
 }

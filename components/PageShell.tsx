@@ -3,7 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { TopNav } from "./TopNav";
+import { SystemBanner, TopNav, type NavItem } from "./ui/dashboard";
 
 type PageShellProps = {
   activeHref: string;
@@ -12,6 +12,7 @@ type PageShellProps = {
   description: string;
   eyebrow?: string;
   loading?: boolean;
+  navItems?: NavItem[];
   onRefresh?: () => void;
   refreshHref?: string;
   showRefresh?: boolean;
@@ -24,8 +25,9 @@ export function PageShell({
   activeHref,
   children,
   description,
-  eyebrow = "V1 \u53ea\u8bfb\u770b\u76d8",
+  eyebrow = "V1 只读看盘",
   loading = false,
+  navItems,
   onRefresh,
   refreshHref,
   showRefresh = true,
@@ -35,6 +37,7 @@ export function PageShell({
   return (
     <main className="min-h-screen bg-[#060914] px-3 py-3 text-slate-100 sm:px-5 lg:px-6">
       <div className="mx-auto max-w-[1920px] space-y-3">
+        <SystemBanner />
         <header className="border border-slate-800 bg-slate-950/70">
           <div className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -49,7 +52,7 @@ export function PageShell({
               {actions}
             </div>
           </div>
-          <TopNav activeHref={activeHref} />
+          <TopNav activeHref={activeHref} items={navItems} />
         </header>
         {children}
       </div>

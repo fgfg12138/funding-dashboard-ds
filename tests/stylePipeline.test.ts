@@ -34,25 +34,32 @@ describe("style pipeline", () => {
 
   it("renders the unified Chinese navigation items", () => {
     expect(APP_NAV_ITEMS.map((item) => item.label)).toEqual([
+      // 生产控制台
+      "生产控制台",
+      // 数据看板
       "机会总览",
       "资金费率看板",
       "基差看板",
-      "Alpha发现",
-      "因子研究",
       "Funding热力图",
+      "Alpha发现",
+      // 研究分析
+      "因子研究",
       "机会验证",
-      "通知中心",
       "模拟回测",
+      // 策略执行
       "策略管理",
       "风险规则",
-      "ADL监控",
       "执行中心",
       "模拟资产",
+      // 系统管理
       "API管理",
-      "账户同步",
-      "审计日志",
-      "执行队列",
       "安全控制",
+      "审计日志",
+      "通知中心",
+      // 已归档
+      "ADL监控",
+      "账户同步",
+      "执行队列",
       "本地通知",
       "沙盒生命周期",
       "Testnet Readiness",

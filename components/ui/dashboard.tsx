@@ -7,25 +7,32 @@ export type NavItem = {
 };
 
 export const APP_NAV_ITEMS: NavItem[] = [
+  // ── 生产控制台 ──
+  { href: "/production-console", label: "生产控制台" },
+  // ── 数据看板 ──
   { href: "/opportunities", label: "机会总览" },
   { href: "/dashboard", label: "资金费率看板" },
   { href: "/basis", label: "基差看板" },
-  { href: "/alpha", label: "Alpha发现" },
-  { href: "/factors", label: "因子研究" },
   { href: "/heatmap", label: "Funding热力图" },
+  { href: "/alpha", label: "Alpha发现" },
+  // ── 研究分析 ──
+  { href: "/factors", label: "因子研究" },
   { href: "/research", label: "机会验证" },
-  { href: "/notifications", label: "通知中心" },
   { href: "/simulation", label: "模拟回测" },
+  // ── 策略执行 ──
   { href: "/strategies", label: "策略管理" },
   { href: "/risk-rules", label: "风险规则" },
-  { href: "/adl-monitor", label: "ADL监控" },
   { href: "/execution", label: "执行中心" },
   { href: "/paper-portfolio", label: "模拟资产" },
+  // ── 系统管理 ──
   { href: "/api-keys", label: "API管理" },
-  { href: "/account-sync", label: "账户同步" },
-  { href: "/audit", label: "审计日志" },
-  { href: "/execution-queue", label: "执行队列" },
   { href: "/safety", label: "安全控制" },
+  { href: "/audit", label: "审计日志" },
+  { href: "/notifications", label: "通知中心" },
+  // ── 已归档 ──
+  { href: "/adl-monitor", label: "ADL监控" },
+  { href: "/account-sync", label: "账户同步" },
+  { href: "/execution-queue", label: "执行队列" },
   { href: "/notifications-center", label: "本地通知" },
   { href: "/sandbox-lifecycle", label: "沙盒生命周期" },
   { href: "/testnet-readiness", label: "Testnet Readiness" },
@@ -167,6 +174,73 @@ export function TypeBadge({ label }: { label: "CrossExchange" | "SpotPerp" | "Ba
 
 export function ReadOnlyPill() {
   return <span className="border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200">只读 / 不交易</span>;
+}
+
+// ─── Exchange Tier Badge ───────────────────────────────
+
+export function ExchangeTierBadge({ exchangeId }: { exchangeId: string }) {
+  const isBinance = exchangeId.toLowerCase() === "binance";
+  if (isBinance) {
+    return <span className="border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 text-xs font-medium text-emerald-200" title="已完成主网微额验证">Binance ✅ 主网验证</span>;
+  }
+  return <span className="border border-slate-700 bg-slate-900 px-2 py-0.5 text-xs text-slate-400" title="仅 Exchange Foundation 层">Foundation</span>;
+}
+
+// ─── System Status Banner ──────────────────────────────
+
+export type SystemEnv = {
+  gitCommit?: string;
+  binanceKeyConfigured: boolean;
+  dryRun: boolean;
+  realExecutionEnabled: boolean;
+  killSwitchActive: boolean;
+  futuresActive: boolean;
+  tinyMode: boolean;
+};
+
+export function SystemBanner({ env }: { env?: Partial<SystemEnv> }) {
+  const commit = env?.gitCommit ?? "dev";
+  const dryRun = env?.dryRun ?? true;
+  const realExec = env?.realExecutionEnabled ?? false;
+  const ks = env?.killSwitchActive ?? true;
+  const futures = env?.futuresActive ?? false;
+  const hasKey = env?.binanceKeyConfigured ?? false;
+  const tiny = env?.tinyMode ?? true;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border border-slate-800 bg-slate-950/40 px-4 py-2 text-xs">
+      <span className="text-slate-500">commit</span>
+      <code className="font-mono text-cyan-300">{commit}</code>
+      <span className="text-slate-600">|</span>
+      {hasKey ? (
+        <span className="text-emerald-300" title="Binance API Key 已配置">🔑 Key OK</span>
+      ) : (
+        <span className="text-slate-500" title="Binance API Key 未配置">🔑 No Key</span>
+      )}
+      {dryRun ? (
+        <span className="text-yellow-300">🧪 Dry Run</span>
+      ) : (
+        <span className="text-emerald-300" title="Real Execution Enabled">⚡ Live</span>
+      )}
+      {tiny ? (
+        <span className="text-cyan-300">🔬 Tiny Mode</span>
+      ) : null}
+      {futures ? (
+        <span className="text-emerald-300">📈 Futures On</span>
+      ) : (
+        <span className="text-slate-500">📈 Futures Off</span>
+      )}
+      {ks ? (
+        <span className="text-emerald-300">🛡️ KS Active</span>
+      ) : (
+        <span className="text-red-300">🛡️ KS Disabled</span>
+      )}
+      {realExec ? (
+        <span className="text-amber-300">⚠️ Exec Enabled</span>
+      ) : null}
+      <span className="ml-auto text-emerald-400/70">只读 / 不交易</span>
+    </div>
+  );
 }
 
 /* ── Skeleton ─────────────────────────────────────────── */
