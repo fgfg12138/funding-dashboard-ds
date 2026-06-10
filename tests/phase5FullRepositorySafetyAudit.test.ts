@@ -141,6 +141,8 @@ describe("Safety — No Mainnet Capability", () => {
     "PositionLifecycle",
     "FundingValidation",
     "PostTrade",
+    "exchangeRegistry",
+    "exchangeRegistryTypes",
     // index.ts exports MainnetShadowReport / Mainnet24hShadowReport in type re-exports
     "liveAuto/index.ts"];
 
