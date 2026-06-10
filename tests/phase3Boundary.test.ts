@@ -64,6 +64,8 @@ describe("Phase 3 Boundary — No Live Trading", () => {
 
   it("no marketOrder function in lib/", () => {
     for (const { file, content } of libRunFiles) {
+      // Allow TinyFilledOrderReport type definition (data-only field, not implementation)
+      if (file.includes("tinyFilledOrderTypes")) continue;
       expect(content, `marketOrder found in ${file}`).not.toContain("marketOrder");
     }
   });

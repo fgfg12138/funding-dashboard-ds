@@ -151,3 +151,10 @@ export {
 export type {
   TinyDryRunReport,
 } from "./tinyDryRunTypes";
+
+// Tiny Filled-Order — Live Validation Report
+export type {
+  TinyFilledOrderReport,
+  TinyFilledOrderConfig,
+  TinyOrderPlan,
+} from "./tinyFilledOrderTypes";
