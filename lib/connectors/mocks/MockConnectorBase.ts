@@ -35,8 +35,22 @@ export abstract class MockConnectorBase implements ExchangeConnector {
   // In-memory store
   protected _orders: Map<string, InFlightOrder> = new Map();
   protected _seq = 0;
-  protected _health: ConnectorHealth = createConnectorHealth(this.exchangeId);
+  protected _health!: ConnectorHealth;
   protected _balances: Record<string, number> = { USDT: 10000 };
+
+  constructor() {
+    // Use setTimeout to defer health creation (avoids abstract property access in constructor)
+    // or we could just let each subclass pass exchangeId. But since exchangeId is defined as
+    // abstract readonly, the value IS available by the time methods are called, just not in the
+    // constructor body of the base class. So we lazily initialize _health.
+  }
+
+  private ensureHealth(): ConnectorHealth {
+    if (!this._health) {
+      this._health = createConnectorHealth(this.exchangeId);
+    }
+    return this._health;
+  }
 
   // ── Connection ───────────────────────────────────
 
@@ -166,7 +180,7 @@ export abstract class MockConnectorBase implements ExchangeConnector {
   // ── Health ──────────────────────────────────────
 
   async getHealth(): Promise<ConnectorHealth> {
-    return { ...this._health };
+    return { ...this.ensureHealth() };
   }
 
   // ── Utility for tracking filled orders (used in tests) ──
