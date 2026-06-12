@@ -12,6 +12,9 @@ import type {
   ExecutionLegResult,
   ExecutionScenarioResult,
   ExecutionMode,
+  ExecutionLockStatus,
+  ExecutionRecoveryRecommendation,
+  ExecutionLock,
 } from "./crossExchangeExecutionTypes";
 
 // ─── Helpers ───────────────────────────────────────────
@@ -297,4 +300,116 @@ export function runAllExecutionScenarios(): {
 
   const report = generateExecutionReadinessReport(scenarios);
   return { scenarios, report };
+}
+
+// ─── 7. SingleLegExposurePolicy ─────────────────────────
+
+export function evaluateSingleLegExposure(
+  shortFilled: number,
+  longFilled: number,
+): { detected: boolean; action: string; blockFurtherExecution: boolean; allowOnlyReduce: boolean } {
+  const singleLeg = (shortFilled > 0 && longFilled === 0) || (longFilled > 0 && shortFilled === 0);
+  return {
+    detected: singleLeg,
+    action: singleLeg ? "manual_intervention_required" : "none",
+    blockFurtherExecution: singleLeg,
+    allowOnlyReduce: singleLeg,
+  };
+}
+
+// ─── 8. PartialFillMismatchPolicy ────────────────────────
+
+const MISMATCH_THRESHOLD = 0.2; // 20% difference
+
+export function evaluatePartialFillMismatch(
+  shortFilled: number,
+  longFilled: number,
+): { detected: boolean; severity: string; action: string; blockFurtherExecution: boolean } {
+  const maxFill = Math.max(shortFilled, longFilled);
+  const minFill = Math.min(shortFilled, longFilled);
+  const ratio = maxFill > 0 ? minFill / maxFill : 1;
+  const mismatch = ratio < (1 - MISMATCH_THRESHOLD);
+
+  return {
+    detected: mismatch,
+    severity: mismatch ? "critical" : "none",
+    action: mismatch ? "manual_intervention_required" : "none",
+    blockFurtherExecution: mismatch,
+  };
+}
+
+// ─── 9. ExecutionIdempotencyGuard ────────────────────────
+
+const _executedPlanIds = new Set<string>();
+
+export function checkExecutionIdempotency(planId: string): { duplicate: boolean; block: boolean } {
+  if (_executedPlanIds.has(planId)) {
+    return { duplicate: true, block: true };
+  }
+  _executedPlanIds.add(planId);
+  return { duplicate: false, block: false };
+}
+
+export function resetIdempotencyGuard(): void {
+  _executedPlanIds.clear();
+}
+
+// ─── 10. ExecutionLock ──────────────────────────────────
+
+const _executionLocks = new Map<string, ExecutionLock>();
+
+export function createExecutionLock(planId: string): ExecutionLock {
+  const lock: ExecutionLock = { planId, status: "pending", startedAt: Date.now() };
+  _executionLocks.set(planId, lock);
+  return lock;
+}
+
+export function acquireExecutionLock(planId: string): { acquired: boolean; lock?: ExecutionLock; reason?: string } {
+  const existing = _executionLocks.get(planId);
+  if (existing) {
+    if (existing.status === "executing") {
+      return { acquired: false, lock: existing, reason: "Already executing" };
+    }
+    if (existing.status === "completed") {
+      return { acquired: false, lock: existing, reason: "Already completed" };
+    }
+    if (existing.status === "manual_review_required") {
+      return { acquired: false, lock: existing, reason: "Manual review required before retry" };
+    }
+  }
+  const lock = createExecutionLock(planId);
+  lock.status = "executing";
+  return { acquired: true, lock };
+}
+
+export function completeExecutionLock(planId: string, status: ExecutionLockStatus, recommendation?: ExecutionRecoveryRecommendation): void {
+  const lock = _executionLocks.get(planId);
+  if (lock) {
+    lock.status = status;
+    lock.completedAt = Date.now();
+    if (recommendation) lock.recommendation = recommendation;
+  }
+}
+
+// ─── 11. ExecutionRecoveryRecommendation ─────────────────
+
+export function generateRecoveryRecommendation(
+  shortFilled: number,
+  longFilled: number,
+  shortOrderId?: string,
+  longOrderId?: string,
+): ExecutionRecoveryRecommendation {
+  if (shortFilled > 0 && longFilled === 0) {
+    return "reduce_only_close_short";
+  }
+  if (longFilled > 0 && shortFilled === 0) {
+    return "reduce_only_close_long";
+  }
+  if (shortFilled > 0 && longFilled > 0 && shortFilled !== longFilled) {
+    return "manual_review_required";
+  }
+  if (shortFilled > 0 && longFilled > 0 && shortFilled === longFilled) {
+    return "no_action_needed";
+  }
+  return "cancel_remaining_orders";
 }

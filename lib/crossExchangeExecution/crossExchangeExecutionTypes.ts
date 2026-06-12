@@ -4,6 +4,23 @@
 
 export type ExecutionMode = "paper" | "dry_run" | "live_disabled";
 
+export type ExecutionLockStatus = "pending" | "executing" | "completed" | "failed" | "manual_review_required";
+
+export type ExecutionRecoveryRecommendation =
+  | "reduce_only_close_short"
+  | "reduce_only_close_long"
+  | "cancel_remaining_orders"
+  | "manual_review_required"
+  | "no_action_needed";
+
+export type ExecutionLock = {
+  planId: string;
+  status: ExecutionLockStatus;
+  startedAt: number;
+  completedAt?: number;
+  recommendation?: ExecutionRecoveryRecommendation;
+};
+
 export type ExecutionLegOrder = {
   exchangeId: string;
   canonicalSymbol: string;

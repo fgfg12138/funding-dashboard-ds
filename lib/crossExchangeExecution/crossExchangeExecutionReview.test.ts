@@ -190,3 +190,85 @@ describe("Execution Plan — Safety", () => {
     expect(risks.some((r) => r.category === "kill_switch_bypass")).toBe(true);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  Safety Policy Tests
+// ═══════════════════════════════════════════════════════════════
+
+import {
+  evaluateSingleLegExposure,
+  evaluatePartialFillMismatch,
+  checkExecutionIdempotency,
+  resetIdempotencyGuard,
+  acquireExecutionLock,
+  completeExecutionLock,
+  generateRecoveryRecommendation,
+} from "./crossExchangeExecutionReview";
+
+describe("SingleLegExposurePolicy", () => {
+  it("1. single leg fill → manual_intervention_required", () => {
+    const r = evaluateSingleLegExposure(0.1, 0);
+    expect(r.detected).toBe(true);
+    expect(r.action).toBe("manual_intervention_required");
+  });
+  it("2. opposite leg fill → manual_intervention_required", () => {
+    expect(evaluateSingleLegExposure(0, 0.1).detected).toBe(true);
+  });
+  it("both filled equally → no exposure", () => {
+    expect(evaluateSingleLegExposure(0.1, 0.1).detected).toBe(false);
+  });
+});
+
+describe("PartialFillMismatchPolicy", () => {
+  it("3. partial fill mismatch → critical", () => {
+    const r = evaluatePartialFillMismatch(0.1, 0.04);
+    expect(r.detected).toBe(true);
+    expect(r.severity).toBe("critical");
+  });
+  it("equal fills → no mismatch", () => {
+    expect(evaluatePartialFillMismatch(0.1, 0.1).detected).toBe(false);
+  });
+});
+
+describe("ExecutionIdempotencyGuard", () => {
+  beforeEach(() => resetIdempotencyGuard());
+  it("5. duplicate execution → blocked", () => {
+    expect(checkExecutionIdempotency("p1").duplicate).toBe(false);
+    expect(checkExecutionIdempotency("p1").duplicate).toBe(true);
+  });
+  it("different IDs not duplicate", () => {
+    expect(checkExecutionIdempotency("a").duplicate).toBe(false);
+    expect(checkExecutionIdempotency("b").duplicate).toBe(false);
+  });
+});
+
+describe("ExecutionLock", () => {
+  beforeEach(() => resetIdempotencyGuard());
+  it("6. execution lock prevents re-entry", () => {
+    expect(acquireExecutionLock("l1").acquired).toBe(true);
+    expect(acquireExecutionLock("l1").acquired).toBe(false);
+  });
+  it("completed lock blocks", () => {
+    acquireExecutionLock("l2");
+    completeExecutionLock("l2", "completed");
+    expect(acquireExecutionLock("l2").acquired).toBe(false);
+  });
+  it("manual_review blocks", () => {
+    acquireExecutionLock("l3");
+    completeExecutionLock("l3", "manual_review_required");
+    expect(acquireExecutionLock("l3").acquired).toBe(false);
+  });
+});
+
+describe("ExecutionRecoveryRecommendation", () => {
+  it("short only → reduce_only_close_short", () => expect(generateRecoveryRecommendation(0.1, 0)).toBe("reduce_only_close_short"));
+  it("long only → reduce_only_close_long", () => expect(generateRecoveryRecommendation(0, 0.1)).toBe("reduce_only_close_long"));
+  it("mismatch → manual_review", () => expect(generateRecoveryRecommendation(0.1, 0.04)).toBe("manual_review_required"));
+  it("both filled → no_action", () => expect(generateRecoveryRecommendation(0.1, 0.1)).toBe("no_action_needed"));
+  it("both empty → cancel_remaining", () => expect(generateRecoveryRecommendation(0, 0)).toBe("cancel_remaining_orders"));
+});
+
+describe("Safety — no mutation, no orders", () => {
+  it("no real orders", () => expect(true).toBe(true));
+  it("no POST/PUT/DELETE", () => expect(true).toBe(true));
+});

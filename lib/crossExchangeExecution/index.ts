@@ -10,6 +10,9 @@ export type {
   ExecutionScenarioResult,
   CrossExchangeExecutionRisk,
   CrossExchangeExecutionReviewReport,
+  ExecutionLockStatus,
+  ExecutionRecoveryRecommendation,
+  ExecutionLock,
 } from "./crossExchangeExecutionTypes";
 
 export {
@@ -19,4 +22,12 @@ export {
   aggregateExecutionRisks,
   generateExecutionReadinessReport,
   runAllExecutionScenarios,
+  evaluateSingleLegExposure,
+  evaluatePartialFillMismatch,
+  checkExecutionIdempotency,
+  resetIdempotencyGuard,
+  createExecutionLock,
+  acquireExecutionLock,
+  completeExecutionLock,
+  generateRecoveryRecommendation,
 } from "./crossExchangeExecutionReview";
