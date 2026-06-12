@@ -21,7 +21,7 @@ import type {
 // ─── Default Exchanges ──────────────────────────────────
 
 const DEFAULT_EXCHANGES: ExchangeId[] = [
-  "binance", "bybit", "okx", "bitget", "gate", "hyperliquid",
+  "binance", "bybit", "okx", "bitget", "gate", "hyperliquid", "htx",
 ];
 
 const DEFAULT_CAPABILITIES: ExchangeCapability[] = [
@@ -31,6 +31,7 @@ const DEFAULT_CAPABILITIES: ExchangeCapability[] = [
   { exchangeId: "bitget", supportsSpot: true, supportsPerpetual: true, supportsFutures: false, supportsFundingRate: true, supportsOpenInterest: true, supportsReduceOnly: true, supportsPostOnly: false, supportsTestnet: true, supportsMainnet: true, rateLimitPerMinute: 300, maxLeverage: 125 },
   { exchangeId: "gate", supportsSpot: true, supportsPerpetual: true, supportsFutures: true, supportsFundingRate: true, supportsOpenInterest: true, supportsReduceOnly: true, supportsPostOnly: true, supportsTestnet: true, supportsMainnet: true, rateLimitPerMinute: 300, maxLeverage: 100 },
   { exchangeId: "hyperliquid", supportsSpot: false, supportsPerpetual: true, supportsFutures: false, supportsFundingRate: true, supportsOpenInterest: true, supportsReduceOnly: true, supportsPostOnly: false, supportsTestnet: false, supportsMainnet: true, rateLimitPerMinute: 200, maxLeverage: 50 },
+  { exchangeId: "htx", supportsSpot: true, supportsPerpetual: true, supportsFutures: true, supportsFundingRate: true, supportsOpenInterest: true, supportsReduceOnly: true, supportsPostOnly: false, supportsTestnet: true, supportsMainnet: true, rateLimitPerMinute: 300, maxLeverage: 125 },
 ];
 
 const DEFAULT_SYMBOL_MAPPINGS: Array<{ canonical: string; exchangeId: ExchangeId; exchangeSymbol: string; base: string; quote: string; market: MarketType }> = [
@@ -46,6 +47,10 @@ const DEFAULT_SYMBOL_MAPPINGS: Array<{ canonical: string; exchangeId: ExchangeId
   { canonical: "ETHUSDT", exchangeId: "bitget", exchangeSymbol: "ETHUSDT", base: "ETH", quote: "USDT", market: "perpetual" },
   { canonical: "ETHUSDT", exchangeId: "gate", exchangeSymbol: "ETH_USDT", base: "ETH", quote: "USDT", market: "perpetual" },
   { canonical: "ETHUSDT", exchangeId: "hyperliquid", exchangeSymbol: "ETH", base: "ETH", quote: "USDC", market: "perpetual" },
+  // HTX (Huobi)
+  { canonical: "BTCUSDT", exchangeId: "htx", exchangeSymbol: "BTC-USDT", base: "BTC", quote: "USDT", market: "perpetual" },
+  { canonical: "ETHUSDT", exchangeId: "htx", exchangeSymbol: "ETH-USDT", base: "ETH", quote: "USDT", market: "perpetual" },
+  { canonical: "SOLUSDT", exchangeId: "htx", exchangeSymbol: "SOL-USDT", base: "SOL", quote: "USDT", market: "perpetual" },
 ];
 
 const DEFAULT_FUNDING_INTERVALS: FundingInterval[] = [
@@ -55,6 +60,7 @@ const DEFAULT_FUNDING_INTERVALS: FundingInterval[] = [
   { exchangeId: "bitget", marketType: "perpetual", intervalHours: 8 },
   { exchangeId: "gate", marketType: "perpetual", intervalHours: 8 },
   { exchangeId: "hyperliquid", marketType: "perpetual", intervalHours: 1 },
+  { exchangeId: "htx", marketType: "perpetual", intervalHours: 8 },
 ];
 
 const DEFAULT_FEE_MODELS: FeeModel[] = [
@@ -64,6 +70,7 @@ const DEFAULT_FEE_MODELS: FeeModel[] = [
   { exchangeId: "bitget", makerFeePercent: 0.02, takerFeePercent: 0.04, fundingFeeSettlementHours: 8 },
   { exchangeId: "gate", makerFeePercent: 0.02, takerFeePercent: 0.05, fundingFeeSettlementHours: 8 },
   { exchangeId: "hyperliquid", makerFeePercent: 0.01, takerFeePercent: 0.04, fundingFeeSettlementHours: 1 },
+  { exchangeId: "htx", makerFeePercent: 0.02, takerFeePercent: 0.04, fundingFeeSettlementHours: 8 },
 ];
 
 // ─── Internal State ─────────────────────────────────────

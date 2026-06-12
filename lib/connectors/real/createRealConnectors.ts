@@ -9,11 +9,13 @@ import type { ExchangeConnector } from "../connectorTypes";
 import { RealBinanceConnector } from "./RealBinanceConnector";
 import { RealBybitConnector } from "./RealBybitConnector";
 import { RealOkxConnector } from "./RealOkxConnector";
+import { RealHtxConnector } from "./RealHtxConnector";
 
 export function createRealConnectors(): Record<string, ExchangeConnector> {
   return {
     binance: new RealBinanceConnector(),
     bybit: new RealBybitConnector(),
     okx: new RealOkxConnector(),
+    htx: new RealHtxConnector(),
   };
 }

@@ -140,7 +140,7 @@ describe("Exchange Registry", () => {
 
   // ─── 13: List ──────────────────────────────────────
 
-  it("13. listSupportedExchanges — returns all 6 defaults", () => {
+  it("13. listSupportedExchanges — returns all defaults", () => {
     const list = listSupportedExchanges();
     expect(list).toContain("binance");
     expect(list).toContain("bybit");
@@ -148,7 +148,8 @@ describe("Exchange Registry", () => {
     expect(list).toContain("bitget");
     expect(list).toContain("gate");
     expect(list).toContain("hyperliquid");
-    expect(list.length).toBe(6);
+    expect(list).toContain("htx");
+    expect(list.length).toBe(7);
   });
 
   // ─── 14: Unknown exchange error ─────────────────────
