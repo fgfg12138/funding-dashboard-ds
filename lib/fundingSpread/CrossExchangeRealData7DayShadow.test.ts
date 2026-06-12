@@ -145,7 +145,7 @@ describeOrSkip("Cross-Exchange Real Data 7-Day Shadow", () => {
     console.log(`  ╚══════════════════════════════════════════════════════════════════════╝\n`);
 
     (globalThis as any).__7dayReport = report;
-  }, 1200_000);
+  }, 5400_000); // 90-minute timeout for ~53 min runtime
 
   it("1. completedCycles = 2016", () => { const r = (globalThis as any).__7dayReport as Report; expect(r?.completedCycles).toBe(2016); });
   it("2. exchangesChecked >= 3", () => { const r = (globalThis as any).__7dayReport as Report; expect(r?.exchangesChecked).toBeGreaterThanOrEqual(3); });
