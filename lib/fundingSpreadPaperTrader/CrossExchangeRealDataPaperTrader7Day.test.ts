@@ -70,6 +70,10 @@ describeOrSkip("Cross-Exchange Real Data Paper Trader 7-Day", () => {
     let maxOpen = 0, maxUtil = 0;
 
     for (let cycle = 1; cycle <= TARGET_CYCLES; cycle++) {
+      // Progress logging every 100 cycles
+      if (cycle % 100 === 0 || cycle === 1) {
+        console.log(`  🔄 Cycle ${cycle}/${TARGET_CYCLES}...`);
+      }
       try {
         const reads = Object.entries(connectors).flatMap(([, c]) =>
           SYMBOLS.map(async (s) => {
