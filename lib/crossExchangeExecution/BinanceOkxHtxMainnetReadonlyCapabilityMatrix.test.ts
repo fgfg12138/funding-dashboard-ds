@@ -6,6 +6,10 @@
  */
 
 import { describe, expect, it } from "vitest";
+
+// Increased timeout — Capability Matrix fetches many readonly endpoints
+// across 3 exchanges; may be slower under rate-limit conditions.
+const CAPABILITY_TIMEOUT = 30000;
 import { RealBinanceConnector } from "../connectors/real/RealBinanceConnector";
 import { RealOkxConnector } from "../connectors/real/RealOkxConnector";
 import { RealHtxConnector } from "../connectors/real/RealHtxConnector";
@@ -42,8 +46,10 @@ type Report = {
   generatedAt: number;
 };
 
-describe("Binance + OKX + HTX Mainnet Readonly Capability Matrix", () => {
+describe("Binance + OKX + HTX Mainnet Readonly Capability Matrix", { timeout: 30000 }, () => {
   it("Documents current exchange capabilities (no trading attempted)", async () => {
+    const TIMEOUT_MS = 30_000;
+    const start = Date.now();
     expect(ALLOWED).toEqual(["binance", "okx", "htx"]);
     expect(PAUSED).toEqual(expect.arrayContaining(["bybit", "bitget", "gate", "hyperliquid"]));
 
