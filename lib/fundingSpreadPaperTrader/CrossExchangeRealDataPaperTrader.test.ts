@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data Paper Trader
  *
- * Uses live Binance/Bybit/OKX funding data to drive the Paper Trader.
+ * Uses live Binance/OKX/HTX funding data to drive the Paper Trader.
  * Simulates the full spread arbitrage lifecycle: find → open → accrue → exit → report.
  *
  * ⛔ NO TRADING — READ ONLY
@@ -42,7 +42,7 @@ describeOrSkip("Cross-Exchange Real Data Paper Trader", () => {
   it("1. Real connectors created and healthy", async () => {
     const ids = Object.keys(connectors);
     expect(ids).toContain("binance");
-    expect(ids).toContain("bybit");
+    expect(ids).toContain("htx");
     expect(ids).toContain("okx");
 
     for (const [name, c] of Object.entries(connectors)) {
@@ -159,7 +159,7 @@ describeOrSkip("Cross-Exchange Real Data Paper Trader", () => {
     const fs = require("fs");
     const base = fs.readFileSync(require.resolve("../connectors/real/RealConnectorBase.ts"), "utf-8");
     const bin = fs.readFileSync(require.resolve("../connectors/real/RealBinanceConnector.ts"), "utf-8");
-    const byb = fs.readFileSync(require.resolve("../connectors/real/RealBybitConnector.ts"), "utf-8");
+    const byb = fs.readFileSync(require.resolve("../connectors/real/RealHTXConnector.ts"), "utf-8");
     const okx = fs.readFileSync(require.resolve("../connectors/real/RealOkxConnector.ts"), "utf-8");
     const all = base + bin + byb + okx;
     expect(all).not.toContain('method: "POST"');

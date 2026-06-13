@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data Paper Trader 7-Day
  *
- * 2016 cycles (5 min × 7 days) of live Binance/Bybit/OKX funding data
+ * 2016 cycles (5 min × 7 days) of live Binance/OKX/HTX funding data
  * driving the Paper Trader continuously.
  *
  * ⛔ NO TRADING — READ ONLY
@@ -91,7 +91,7 @@ describeOrSkip("Cross-Exchange Real Data Paper Trader 7-Day", () => {
           apySum += top.spreadApy; apyCount++;
         }
 
-        const cf = { binance: connectors.binance, bybit: connectors.bybit, okx: connectors.okx };
+        const cf = { binance: connectors.binance, htx: connectors.htx, okx: connectors.okx };
         const result = await runSpreadPaperTraderStep(cf as any, SYMBOLS, state, traderCfg);
         let s = result.newState;
 

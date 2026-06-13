@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data 7-Day Shadow
  *
- * 2016 cycles (5 min × 7 days) of live Binance/Bybit/OKX funding data,
+ * 2016 cycles (5 min × 7 days) of live Binance/OKX/HTX funding data,
  * running the Funding Spread Engine to verify long-term stability.
  *
  * ⛔ NO TRADING — READ ONLY

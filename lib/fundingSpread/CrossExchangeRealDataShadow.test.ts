@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data Shadow
  *
- * Runs the Funding Spread Engine against live Binance/Bybit/OKX data
+ * Runs the Funding Spread Engine against live Binance/OKX/HTX data
  * using the read-only Real Connector Framework.
  *
  * ⛔ NO TRADING — READ ONLY
@@ -66,9 +66,9 @@ describeOrSkip("Cross-Exchange Real Data Shadow", () => {
 
   // ─── 1. Create connectors ────────────────────────────
 
-  it("1. createRealConnectors returns Binance, Bybit, OKX", () => {
+  it("1. createRealConnectors returns Binance, OKX, HTX", () => {
     const connectors = createRealConnectors();
-    expect(connectors).toHaveProperty("binance");
+    expect(connectors).toHaveProperty("binance"); expect(connectors).toHaveProperty("okx"); expect(connectors).toHaveProperty("htx");
     expect(connectors).toHaveProperty("bybit");
     expect(connectors).toHaveProperty("okx");
     expect(Object.keys(connectors).length).toBeGreaterThanOrEqual(3);

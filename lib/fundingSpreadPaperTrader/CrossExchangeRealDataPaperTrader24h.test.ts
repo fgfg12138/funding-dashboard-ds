@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data Paper Trader 24h
  *
- * 288 cycles (5 min × 24h) of live Binance/Bybit/OKX funding data
+ * 288 cycles (5 min × 24h) of live Binance/OKX/HTX funding data
  * driving the Paper Trader. Simulates the full spread lifecycle
  * continuously: find → open → accrue → exit → repeat.
  *
@@ -92,7 +92,7 @@ describeOrSkip("Cross-Exchange Real Data Paper Trader 24h", () => {
         }
 
         // Paper trader step
-        const connectorsForTrader = { binance: connectors.binance, bybit: connectors.bybit, okx: connectors.okx };
+        const connectorsForTrader = { binance: connectors.binance, htx: connectors.htx, okx: connectors.okx };
         const result = await runSpreadPaperTraderStep(connectorsForTrader as any, SYMBOLS, state, traderConfig);
         let s = result.newState;
 

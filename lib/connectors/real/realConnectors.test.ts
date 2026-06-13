@@ -19,7 +19,7 @@ describeOrSkip("Real Connector Framework", () => {
   it("createRealConnectors returns 3 connectors", () => {
     expect(Object.keys(connectors)).toHaveLength(3);
     expect(connectors).toHaveProperty("binance");
-    expect(connectors).toHaveProperty("bybit");
+    expect(connectors).toHaveProperty("htx");
     expect(connectors).toHaveProperty("okx");
   });
 
@@ -27,7 +27,7 @@ describeOrSkip("Real Connector Framework", () => {
 
   it("each connector has correct exchangeId", () => {
     expect(connectors.binance.exchangeId).toBe("binance");
-    expect(connectors.bybit.exchangeId).toBe("bybit");
+    expect(connectors.htx.exchangeId).toBe("htx");
     expect(connectors.okx.exchangeId).toBe("okx");
   });
 
@@ -44,13 +44,13 @@ describeOrSkip("Real Connector Framework", () => {
     console.log(`  ✅ Binance BTCUSDT: tickSize=${btc!.minPriceIncrement}, stepSize=${btc!.minBaseAmountIncrement}`);
   });
 
-  it("Bybit: getTradingRules returns BTCUSDT from live API", async () => {
-    const rules = await connectors.bybit.getTradingRules();
+  it("HTX: getTradingRules returns BTCUSDT from live API", async () => {
+    const rules = await connectors.htx.getTradingRules();
     const btc = rules.find((r) => r.canonicalSymbol === "BTCUSDT");
     expect(btc).toBeDefined();
     expect(btc!.exchangeSymbol).toBe("BTCUSDT");
     expect(btc!.minPriceIncrement).toBeGreaterThan(0);
-    console.log(`  ✅ Bybit BTCUSDT: tickSize=${btc!.minPriceIncrement}`);
+    console.log(`  ✅ HTX BTCUSDT: tickSize=${btc!.minPriceIncrement}`);
   });
 
   it("OKX: getTradingRules returns BTCUSDT from live API (OKX symbol: BTC-USDT-SWAP)", async () => {
@@ -73,11 +73,11 @@ describeOrSkip("Real Connector Framework", () => {
     console.log(`  ✅ Binance BTCUSDT: markPrice=$${info!.markPrice.toFixed(2)}, fundingRate=${(info!.lastFundingRate * 100).toFixed(4)}%`);
   });
 
-  it("Bybit: getFundingInfo returns live funding data", async () => {
-    const info = await connectors.bybit.getFundingInfo("BTCUSDT");
+  it("HTX: getFundingInfo returns live funding data", async () => {
+    const info = await connectors.htx.getFundingInfo("BTCUSDT");
     expect(info).toBeDefined();
     expect(info!.markPrice).toBeGreaterThan(0);
-    console.log(`  ✅ Bybit BTCUSDT: markPrice=$${info!.markPrice.toFixed(2)}, fundingRate=${(info!.lastFundingRate * 100).toFixed(4)}%`);
+    console.log(`  ✅ HTX BTCUSDT: markPrice=$${info!.markPrice.toFixed(2)}, fundingRate=${(info!.lastFundingRate * 100).toFixed(4)}%`);
   });
 
   it("OKX: getFundingInfo returns live funding data", async () => {

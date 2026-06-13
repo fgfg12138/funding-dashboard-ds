@@ -1,7 +1,7 @@
 /**
  * Cross-Exchange Real Data 24h Shadow
  *
- * 288 cycles (5 min × 24h) of live Binance/Bybit/OKX funding data.
+ * 288 cycles (5 min × 24h) of live Binance/OKX/HTX funding data.
  * Connectors created once, reused across all cycles.
  *
  * ⛔ NO TRADING — READ ONLY
