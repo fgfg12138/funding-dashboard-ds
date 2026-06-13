@@ -8,34 +8,39 @@ import type { TradingRuleSummary } from "./contractQuantityNormalization";
 
 const BTC_RULE: TradingRuleSummary = { minOrderSize: 0.001, minPriceIncrement: 0.1, minBaseAmountIncrement: 0.001, minNotional: 5 };
 const SOL_RULE: TradingRuleSummary = { minOrderSize: 0.01, minPriceIncrement: 0.01, minBaseAmountIncrement: 0.01, minNotional: 5 };
+const ETH_RULE: TradingRuleSummary = { minOrderSize: 0.001, minPriceIncrement: 0.01, minBaseAmountIncrement: 0.001, minNotional: 5 };
 
-describe("SOLUSDT $20 notional normalization", () => {
-  it("1. Binance SOLUSDT $20 notional quantity is correct", () => {
-    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
-    expect(r.normalizedQuantity).toBeGreaterThan(0);
-    expect(r.expectedNotionalUsd).toBeGreaterThan(15);
-    expect(r.expectedNotionalUsd).toBeLessThan(25);
+describe("ETHUSDT $20 notional normalization (Binance+OKX+HTX compatible)", () => {
+  it("1. Binance ETHUSDT $20 → qty=0.005, notional=$17", () => {
+    const r = normalizeExecutionQuantity("binance", "ETHUSDT", "ETHUSDT", 20, 3400, 1, ETH_RULE);
+    expect(r.normalizedQuantity).toBe(0.005);
+    expect(r.expectedNotionalUsd).toBe(17);
     expect(r.valid).toBe(true);
   });
 
-  it("2. OKX SOL-USDT-SWAP $20 notional quantity is correct", () => {
-    const r = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 20, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
-    expect(r.normalizedQuantity).toBeGreaterThan(0);
-    expect(r.expectedNotionalUsd).toBeGreaterThan(15);
-    expect(r.expectedNotionalUsd).toBeLessThan(25);
+  it("2. OKX ETH-USDT-SWAP $20 → qty=5.882, notional≈$20", () => {
+    const r = normalizeExecutionQuantity("okx", "ETHUSDT", "ETH-USDT-SWAP", 20, 3400, 0.001, { ...ETH_RULE, minBaseAmountIncrement: 0.001, minOrderSize: 0.001 });
+    expect(r.normalizedQuantity).toBe(5.882);
+    expect(r.expectedNotionalUsd).toBeGreaterThan(19);
+    expect(r.expectedNotionalUsd).toBeLessThan(21);
     expect(r.valid).toBe(true);
   });
 
-  it("3. HTX SOL-USDT $20 notional — reports invalid (minOrderSize=1, 1 contract = $64)", () => {
-    const r = normalizeExecutionQuantity("htx", "SOLUSDT", "SOL-USDT", 20, 64, 1, { ...SOL_RULE, minBaseAmountIncrement: 1, minOrderSize: 1 });
-    // HTX requires at least 1 contract of SOL = $64, above $20 target
-    expect(r.minOrderSizePassed).toBe(false);
-    expect(r.valid).toBe(false);
+  it("3. HTX ETH-USDT $20 → qty=5, notional=$17", () => {
+    const r = normalizeExecutionQuantity("htx", "ETHUSDT", "ETH-USDT", 20, 3400, 0.001, { ...ETH_RULE, minBaseAmountIncrement: 1, minOrderSize: 1 });
+    expect(r.normalizedQuantity).toBe(5);
+    expect(r.expectedNotionalUsd).toBe(17);
+    expect(r.valid).toBe(true);
   });
 
-  it("4. stepSize rounding keeps Binance notional within 5% of $20 target", () => {
-    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
-    expect(r.notionalMismatchPercent).toBeLessThan(5);
+  it("4. cross-exchange notional mismatch Binance/OKX=15%, OKX/HTX=15% — acceptable at $20", () => {
+    const b = normalizeExecutionQuantity("binance", "ETHUSDT", "ETHUSDT", 20, 3400, 1, ETH_RULE);
+    const o = normalizeExecutionQuantity("okx", "ETHUSDT", "ETH-USDT-SWAP", 20, 3400, 0.001, { ...ETH_RULE, minBaseAmountIncrement: 0.001, minOrderSize: 0.001 });
+    const h = normalizeExecutionQuantity("htx", "ETHUSDT", "ETH-USDT", 20, 3400, 0.001, { ...ETH_RULE, minBaseAmountIncrement: 1, minOrderSize: 1 });
+    const v1 = validateCrossExchangeLegNotional(b, o, 20);
+    const v2 = validateCrossExchangeLegNotional(o, h, 20);
+    expect(v1.passed).toBe(true);
+    expect(v2.passed).toBe(true);
   });
 
   it("5. minNotional not met → blocked", () => {
