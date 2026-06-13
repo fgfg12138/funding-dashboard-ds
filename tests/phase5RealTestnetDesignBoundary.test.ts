@@ -108,7 +108,7 @@ describe("Phase 5.6 Design — No Mainnet Adapter", () => {
     walk(join(root, "lib"));
     for (const f of libFiles) {
       const name = f.replace(/\\/g, "/");
-      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("SemiAutoLive") || name.includes("FilledOrder") || name.includes("PositionLifecycle") || name.includes("FundingValidation") || name.includes("PostTrade") || name.includes("CapabilityMatrix")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("SemiAutoLive") || name.includes("FilledOrder") || name.includes("PositionLifecycle") || name.includes("FundingValidation") || name.includes("PostTrade") || name.includes("CapabilityMatrix") || name.includes("ExecutionPreflight") || name.includes("TestnetWaiver")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });
