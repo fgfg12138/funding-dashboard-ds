@@ -9,33 +9,33 @@ import type { TradingRuleSummary } from "./contractQuantityNormalization";
 const BTC_RULE: TradingRuleSummary = { minOrderSize: 0.001, minPriceIncrement: 0.1, minBaseAmountIncrement: 0.001, minNotional: 5 };
 const SOL_RULE: TradingRuleSummary = { minOrderSize: 0.01, minPriceIncrement: 0.01, minBaseAmountIncrement: 0.01, minNotional: 5 };
 
-describe("Binance SOLUSDT $5 notional", () => {
-  it("1. Binance SOLUSDT $50 notional quantity is correct", () => {
-    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 50, 64, 1, SOL_RULE);
+describe("SOLUSDT $20 notional normalization", () => {
+  it("1. Binance SOLUSDT $20 notional quantity is correct", () => {
+    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
     expect(r.normalizedQuantity).toBeGreaterThan(0);
-    expect(r.expectedNotionalUsd).toBeGreaterThan(40);
-    expect(r.expectedNotionalUsd).toBeLessThan(60);
+    expect(r.expectedNotionalUsd).toBeGreaterThan(15);
+    expect(r.expectedNotionalUsd).toBeLessThan(25);
     expect(r.valid).toBe(true);
   });
 
-  it("2. OKX SOL-USDT-SWAP $50 notional quantity is correct", () => {
-    const r = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 50, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
+  it("2. OKX SOL-USDT-SWAP $20 notional quantity is correct", () => {
+    const r = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 20, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
     expect(r.normalizedQuantity).toBeGreaterThan(0);
-    expect(r.expectedNotionalUsd).toBeGreaterThan(40);
-    expect(r.expectedNotionalUsd).toBeLessThan(60);
+    expect(r.expectedNotionalUsd).toBeGreaterThan(15);
+    expect(r.expectedNotionalUsd).toBeLessThan(25);
     expect(r.valid).toBe(true);
   });
 
-  it("3. HTX SOL-USDT $200 notional quantity is correct (minOrderSize=1)", () => {
-    const r = normalizeExecutionQuantity("htx", "SOLUSDT", "SOL-USDT", 200, 64, 1, { ...SOL_RULE, minBaseAmountIncrement: 1, minOrderSize: 1 });
-    expect(r.normalizedQuantity).toBeGreaterThanOrEqual(1);
-    expect(r.expectedNotionalUsd).toBeGreaterThan(100);
-    expect(r.valid).toBe(true);
+  it("3. HTX SOL-USDT $20 notional — reports invalid (minOrderSize=1, 1 contract = $64)", () => {
+    const r = normalizeExecutionQuantity("htx", "SOLUSDT", "SOL-USDT", 20, 64, 1, { ...SOL_RULE, minBaseAmountIncrement: 1, minOrderSize: 1 });
+    // HTX requires at least 1 contract of SOL = $64, above $20 target
+    expect(r.minOrderSizePassed).toBe(false);
+    expect(r.valid).toBe(false);
   });
 
-  it("4. stepSize rounding keeps notional within 20% of target ($50)", () => {
-    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 50, 64, 1, SOL_RULE);
-    expect(r.notionalMismatchPercent).toBeLessThan(20);
+  it("4. stepSize rounding keeps Binance notional within 5% of $20 target", () => {
+    const r = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
+    expect(r.notionalMismatchPercent).toBeLessThan(5);
   });
 
   it("5. minNotional not met → blocked", () => {
@@ -78,18 +78,18 @@ describe("Binance SOLUSDT $5 notional", () => {
 });
 
 describe("Cross-exchange validation", () => {
-  it("validateCrossExchangeLegNotional detects mismatch (realistic)", () => {
-    const r1 = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 50, 64, 1, SOL_RULE);
-    const r2 = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 50, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
-    const v = validateCrossExchangeLegNotional(r1, r2, 10); // Allow 10% mismatch at $50 SOL
+  it("validateCrossExchangeLegNotional detects mismatch", () => {
+    const r1 = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
+    const r2 = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 20, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
+    const v = validateCrossExchangeLegNotional(r1, r2, 5);
     expect(typeof v.passed).toBe("boolean");
     expect(typeof v.mismatchPercent).toBe("number");
   });
 
   it("generateQuantityNormalizationReport runs without error", () => {
-    const r1 = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 50, 64, 1, SOL_RULE);
-    const r2 = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 50, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
-    const report = generateQuantityNormalizationReport([r1, r2], 10);
+    const r1 = normalizeExecutionQuantity("binance", "SOLUSDT", "SOLUSDT", 20, 64, 1, SOL_RULE);
+    const r2 = normalizeExecutionQuantity("okx", "SOLUSDT", "SOL-USDT-SWAP", 20, 64, 0.1, { ...SOL_RULE, minBaseAmountIncrement: 0.1, minOrderSize: 0.1 });
+    const report = generateQuantityNormalizationReport([r1, r2], 5);
     expect(Array.isArray(report.results)).toBe(true);
   });
 });

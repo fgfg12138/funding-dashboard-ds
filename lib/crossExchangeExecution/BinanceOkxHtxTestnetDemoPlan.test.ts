@@ -91,7 +91,7 @@ describeOrSkip("Binance + OKX + HTX Testnet/Demo Plan", () => {
     expect(ALLOWED.includes(top.longExchangeId)).toBe(true);
 
     const symbol = top.canonicalSymbol;
-    const targetNotional = 5;
+    const targetNotional = 20;
     const shortPrice = top.shortLeg.markPrice;
     const longPrice = top.longLeg.markPrice;
 
