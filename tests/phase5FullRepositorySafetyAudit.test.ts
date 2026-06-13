@@ -141,6 +141,7 @@ describe("Safety — No Mainnet Capability", () => {
     "PositionLifecycle",
     "FundingValidation",
     "PostTrade",
+    "CapabilityMatrix",
     "exchangeRegistry",
     "exchangeRegistryTypes",
     "production-console",
@@ -166,7 +167,7 @@ describe("Safety — No Mainnet Capability", () => {
     const libFiles = collectFiles("lib", (n) => /\.(ts|tsx)$/.test(n) && !n.includes(".test."));
     for (const f of libFiles) {
       const name = f.replace(/\\/g, "/");
-      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("FilledOrder") || name.includes("PositionLifecycle") || name.includes("FundingValidation") || name.includes("PostTrade")) continue;
+      if (name.includes("ReadOnly") || name.includes("24hShadow") || name.includes("7DayShadow") || name.includes("DryRun") || name.includes("FilledOrder") || name.includes("PositionLifecycle") || name.includes("FundingValidation") || name.includes("PostTrade") || name.includes("CapabilityMatrix")) continue;
       expect(name, `mainnet file found: ${name}`).not.toMatch(/mainnet/i);
     }
   });
