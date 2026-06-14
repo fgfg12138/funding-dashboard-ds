@@ -205,8 +205,9 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
           try {
             const i = await connector.getFundingInfo(exchangeSymbol);
             const latency = Date.now() - t0;
-            if (i && isFiniteNumber(i.markPrice)) { mp = i.markPrice; ok = true; }
-            if (i && isFiniteNumber(i.lastFundingRate)) fr = i.lastFundingRate;
+            if (i && isFiniteNumber(i.markPrice) && isFiniteNumber(i.lastFundingRate)) {
+              mp = i.markPrice; fr = i.lastFundingRate; ok = true;
+            }
             if (i && isFiniteNumber(i.nextFundingTime)) next = i.nextFundingTime;
             httpStatus = 200;
             // exchange_api has no status field, but if we got here it's a success
@@ -245,11 +246,15 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         const okxResult = await readExchange("okx", connectors.okx, sp.symbol, coin + "-USDT-SWAP", "getFundingInfo");
         const htxResult = await readExchange("htx", connectors.htx, sp.symbol, coin + "-USDT", "getFundingInfo");
 
-        // Use Binance mark price for normalization (fall back to OKX, then HTX)
-        const mp = bnResult.mp ?? okxResult.mp ?? htxResult.mp ?? 0;
+        // Per-exchange mark prices for normalization
+        const bnMp = bnResult.mp;
+        const okxMp = okxResult.mp;
+        const htxMp = htxResult.mp;
         const bnFr = bnResult.fr ?? 0;
         const okxFr = okxResult.fr ?? 0;
         const htxFr = htxResult.fr ?? 0;
+        // Combined mp for blocker messages (not used for notional calc)
+        const mp = bnMp ?? okxMp ?? htxMp ?? 0;
 
         // Track per-exchange errors
         if (!bnResult.ok) { errCount++; degradedThisCycle = true; bnFailed++; errorBreakdownByReason[bnResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[bnResult.errCode||"UNKNOWN"]||0)+1; }
@@ -270,14 +275,15 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         if (mp <= 0) {
           blockerParts.push("no_mark_price");
         } else {
-          bnQt = Math.floor(sp.target / mp / sp.bnSt) * sp.bnSt;
-          bnN = bnQt * mp;
+          // Each exchange uses its OWN markPrice for notional calculation
+          bnQt = bnMp ? Math.floor(sp.target / bnMp / sp.bnSt) * sp.bnSt : 0;
+          bnN = bnQt * (bnMp ?? 0);
           bnV = bnQt > 0 && bnN >= sp.bnMinN;
-          okxQt = Math.floor(sp.target / (mp * sp.okxCt) / sp.okxLt) * sp.okxLt;
-          okxN = okxQt * mp * sp.okxCt;
+          okxQt = okxMp ? Math.floor(sp.target / (okxMp * sp.okxCt) / sp.okxLt) * sp.okxLt : 0;
+          okxN = okxQt * (okxMp ?? 0) * sp.okxCt;
           okxV = okxQt > 0 && okxN >= 5;
-          htxQt = Math.floor(sp.target / (sp.htxCt * mp) / 1) * 1;
-          htxN = htxQt * sp.htxCt * mp;
+          htxQt = htxMp ? Math.floor(sp.target / (sp.htxCt * htxMp) / 1) * 1 : 0;
+          htxN = htxQt * sp.htxCt * (htxMp ?? 0);
           htxV = htxQt > 0 && htxN >= 5;
           const ns = [bnN, okxN, htxN].filter((n) => n > 0);
           mm = ns.length >= 2 ? (Math.max(...ns) - Math.min(...ns)) / Math.max(...ns) * 100 : 0;
