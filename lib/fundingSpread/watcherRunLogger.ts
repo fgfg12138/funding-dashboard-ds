@@ -40,13 +40,25 @@ export type CycleRecord = {
   totalCycles: number;
   timestamp: number;
   symbolsChecked: number;
-  fundingRatesRead: number;
+  /** How many funding snapshots we expected to write this cycle (exchanges × symbols) */
+  fundingSnapshotsExpected: number;
+  /** How many funding snapshots were actually appended to JSONL */
+  fundingSnapshotsWritten: number;
+  /** How many individual exchange reads succeeded */
+  fundingReadsOk: number;
+  /** How many individual exchange reads failed */
+  fundingReadsFailed: number;
   viableCandidates: number;
   actionableOpportunities: number;
   bestNetSpreadApy: number;
   readinessStatus: string;
-  degradedExchanges: number;
-  errors: number;
+  /** Which exchanges had errors this cycle */
+  degradedExchanges: string[];
+  /** Error count breakdown by exchange */
+  errorBreakdownByExchange: Record<string, number>;
+  /** Error count breakdown by reason category */
+  errorBreakdownByReason: Record<string, number>;
+  totalErrors: number;
   privateApiCalled: boolean;
   mainnetOrderAttempted: boolean;
   realOrdersExecuted: number;
@@ -62,12 +74,28 @@ export type FundingSnapshotRecord = {
   exchangeId: string;
   symbol: string;
   exchangeSymbol: string;
-  fundingRate: number;
+  /** null when read failed; 0 is a valid real funding rate */
+  fundingRate: number | null;
   fundingIntervalHours: number;
   nextFundingTime: number | null;
-  markPrice: number;
+  /** The mark price from THIS exchange (NOT shared) */
+  markPrice: number | null;
+  /** What provided the mark price data */
+  source: "exchange_api" | "fallback_previous" | "fallback_zero";
+  /** The API endpoint called */
+  endpoint: string;
+  /** HTTP status code; 0 if network error */
+  httpStatus: number;
+  /** Error code from exchange if any */
+  errorCode: string | null;
+  /** Human-readable error message */
+  errorMessage: string | null;
+  /** How many retries were attempted */
+  retryCount: number;
+  /** API call duration in ms */
+  latencyMs: number;
+  /** true ONLY if data was successfully received from the exchange */
   readOk: boolean;
-  error: string | null;
 };
 
 export type CandidateRecord = {
@@ -107,7 +135,10 @@ export type Summary = {
   wallClockDurationMs: number;
   completedCycles: number;
   symbolsChecked: number;
-  fundingRatesRead: number;
+  fundingSnapshotsExpected: number;
+  fundingSnapshotsWritten: number;
+  fundingReadsOk: number;
+  fundingReadsFailed: number;
   viableCandidatesObserved: number;
   actionableOpportunitiesObserved: number;
   bestOpportunity: {
@@ -146,7 +177,10 @@ export class WatcherRunLogger {
   readonly dir: string;
   readonly config: RunConfig;
   private _startedAt: number;
-  private _totalFundingCalls = 0;
+  private _totalFundingSnapshotsExpected = 0;
+  private _totalFundingSnapshotsWritten = 0;
+  private _totalFundingReadsOk = 0;
+  private _totalFundingReadsFailed = 0;
   private _viableCount = 0;
   private _actionableCount = 0;
   private _degradedCycles = 0;
@@ -161,23 +195,20 @@ export class WatcherRunLogger {
     this._startedAt = config.startedAt;
     this.dir = path.join(BASE_DIR, config.runId);
 
-    // Create directory structure
     fs.mkdirSync(this.dir, { recursive: true });
-
-    // Write run.json
     writeJson(this.dir, "run.json", this.config);
-
-    // Create empty signal file (exists even if no signals)
     fs.writeFileSync(path.join(this.dir, "signals.jsonl"), "", "utf8");
   }
 
   /** Record one cycle snapshot */
   logCycle(record: Omit<CycleRecord, "runId">): void {
     appendJsonl(this.dir, "cycles.jsonl", { runId: this.runId, ...record });
-
-    this._totalFundingCalls += record.fundingRatesRead;
-    if (record.degradedExchanges > 0) this._degradedCycles++;
-    this._errorCount += record.errors;
+    this._totalFundingSnapshotsExpected += record.fundingSnapshotsExpected;
+    this._totalFundingSnapshotsWritten += record.fundingSnapshotsWritten;
+    this._totalFundingReadsOk += record.fundingReadsOk;
+    this._totalFundingReadsFailed += record.fundingReadsFailed;
+    if (record.degradedExchanges.length > 0) this._degradedCycles++;
+    this._errorCount += record.totalErrors;
     if (record.bestNetSpreadApy > this._bestApy) {
       this._bestApy = record.bestNetSpreadApy;
     }
@@ -211,15 +242,9 @@ export class WatcherRunLogger {
     }
   }
 
-  /** Accumulate viable count from per-candidate logs */
-  get viableCount(): number {
-    return this._viableCount;
-  }
-
   /** Write summary.json and mark run complete */
   finalize(): Summary {
     if (this._completed) {
-      // Re-read existing summary
       const existing = JSON.parse(fs.readFileSync(path.join(this.dir, "summary.json"), "utf8"));
       return existing;
     }
@@ -233,7 +258,10 @@ export class WatcherRunLogger {
       wallClockDurationMs: now - this._startedAt,
       completedCycles: this.config.totalCycles,
       symbolsChecked: this.config.symbols.length,
-      fundingRatesRead: this._totalFundingCalls,
+      fundingSnapshotsExpected: this._totalFundingSnapshotsExpected,
+      fundingSnapshotsWritten: this._totalFundingSnapshotsWritten,
+      fundingReadsOk: this._totalFundingReadsOk,
+      fundingReadsFailed: this._totalFundingReadsFailed,
       viableCandidatesObserved: this._viableCount,
       actionableOpportunitiesObserved: this._actionableCount,
       bestOpportunity: this._bestOpp,
@@ -251,7 +279,6 @@ export class WatcherRunLogger {
     return summary;
   }
 
-  /** Get directory path for external inspection */
   get directory(): string {
     return this.dir;
   }

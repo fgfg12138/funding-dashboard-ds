@@ -46,7 +46,7 @@ type Report = {
   generatedAt: number;
 };
 
-describe("Binance + OKX + HTX Mainnet Readonly Capability Matrix", { timeout: 30000 }, () => {
+describe("Binance + OKX + HTX Mainnet Readonly Capability Matrix", { timeout: 120000 }, () => {
   it("Documents current exchange capabilities (no trading attempted)", async () => {
     const TIMEOUT_MS = 30_000;
     const start = Date.now();

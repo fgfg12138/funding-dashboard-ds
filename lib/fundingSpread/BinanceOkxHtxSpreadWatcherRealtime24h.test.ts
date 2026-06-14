@@ -52,7 +52,8 @@ type Report = {
   minObservedIntervalMs: number; maxObservedIntervalMs: number;
   avgObservedIntervalMs: number;
   intervals: IntervalRecord[];
-  symbolsChecked: number; fundingRatesRead: number;
+  symbolsChecked: number; fundingSnapshotsExpected: number;
+  fundingSnapshotsWritten: number; fundingReadsOk: number; fundingReadsFailed: number;
   viableCandidatesObserved: number;
   actionableOpportunitiesObserved: number;
   bestOpportunity?: { cycle: number; symbol: string; short: string; long: string; netApy: number };
@@ -141,8 +142,10 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     const allBlockedLiq = new Set<string>();
     const allNoSpread = new Set<string>();
     let totalFundingCalls = 0;
-    let totalErrors = 0;
     let totalDegraded = 0;
+    let totalErrors = 0;
+    let totalReadsOk = 0;
+    let totalReadsFailed = 0;
     let actionableObserved = 0;
     let bestEverApy = 0;
     let bestOpp: { cycle: number; symbol: string; short: string; long: string; netApy: number } | null = null;
@@ -169,89 +172,91 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       let bestSym = "";
       let bestShort = "";
       let bestLong = "";
-      let degraded = false;
+      // Track per-exchange degraded state for this cycle
+      let degradedThisCycle = false;
       let errCount = 0;
       let cycleFundingReads = 0;
-
+      let bnFailed = 0, okxFailed = 0, htxFailed = 0;
+      const errorBreakdownByExchange: Record<string, number> = {};
+      const errorBreakdownByReason: Record<string, number> = {};
       for (const sp of symParams) {
         const coin = sp.coin;
-        let mp = 0;
-        let bnFr = 0;
-        let bnNext = null;
-        let bnOk = false;
 
-        // ── Binance funding snapshot ──
-        try {
-          const i = await connectors.binance.getFundingInfo(sp.symbol);
-          if (i && isFiniteNumber(i.markPrice)) mp = i.markPrice;
-          if (i && isFiniteNumber(i.fundingRate)) bnFr = i.fundingRate;
-          if (i && isFiniteNumber(i.nextFundingTime)) bnNext = i.nextFundingTime;
-          bnOk = true;
-          totalFundingCalls++;
-          cycleFundingReads++;
-        } catch { errCount++; degraded = true; }
-        logger.logFundingSnapshot({
-          cycle, timestamp: ts,
-          exchangeId: "binance", symbol: sp.symbol,
-          exchangeSymbol: sp.symbol,
-          fundingRate: bnFr,
-          fundingIntervalHours: 8,
-          nextFundingTime: bnNext,
-          markPrice: mp,
-          readOk: bnOk,
-          error: bnOk ? null : "read failed",
-        });
+        // ── Per-exchange funding snapshots with latency & error tracking ──
+        // We read each exchange independently, capturing its own mark price.
 
-        // ── OKX funding snapshot ──
-        let okxFr = 0;
-        let okxNext = null;
-        let okxReadOk = false;
-        try {
-          const i = await connectors.okx.getFundingInfo(coin + "-USDT-SWAP");
-          if (i && isFiniteNumber(i.fundingRate)) okxFr = i.fundingRate;
-          if (i && isFiniteNumber(i.nextFundingTime)) okxNext = i.nextFundingTime;
-          okxReadOk = true;
-          totalFundingCalls++;
-          cycleFundingReads++;
-        } catch { errCount++; degraded = true; }
-        logger.logFundingSnapshot({
-          cycle, timestamp: ts,
-          exchangeId: "okx", symbol: sp.symbol,
-          exchangeSymbol: coin + "-USDT-SWAP",
-          fundingRate: okxFr,
-          fundingIntervalHours: 8,
-          nextFundingTime: okxNext,
-          markPrice: mp,
-          readOk: okxReadOk,
-          error: okxReadOk ? null : "read failed",
-        });
+        async function readExchange(
+          exchangeId: string,
+          connector: any,
+          symbol: string,
+          exchangeSymbol: string,
+          endpoint: string,
+        ) {
+          const t0 = Date.now();
+          let fr: number | null = null;
+          let mp: number | null = null;
+          let next: number | null = null;
+          let ok = false;
+          let httpStatus = 0;
+          let errCode: string | null = null;
+          let errMsg: string | null = null;
+          let source: "exchange_api" | "fallback_previous" | "fallback_zero" = "exchange_api";
 
-        // ── HTX funding snapshot ──
-        let htxFr = 0;
-        let htxNext = null;
-        let htxReadOk = false;
-        try {
-          const i = await connectors.htx.getFundingInfo(coin);
-          if (i && isFiniteNumber(i.fundingRate)) htxFr = i.fundingRate;
-          if (i && isFiniteNumber(i.nextFundingTime)) htxNext = i.nextFundingTime;
-          htxReadOk = true;
-          totalFundingCalls++;
-          cycleFundingReads++;
-        } catch { errCount++; degraded = true; }
-        logger.logFundingSnapshot({
-          cycle, timestamp: ts,
-          exchangeId: "htx", symbol: sp.symbol,
-          exchangeSymbol: coin + "-USDT",
-          fundingRate: htxFr,
-          fundingIntervalHours: 8,
-          nextFundingTime: htxNext,
-          markPrice: mp,
-          readOk: htxReadOk,
-          error: htxReadOk ? null : "read failed",
-        });
+          try {
+            const i = await connector.getFundingInfo(exchangeSymbol);
+            const latency = Date.now() - t0;
+            if (i && isFiniteNumber(i.markPrice)) { mp = i.markPrice; ok = true; }
+            if (i && isFiniteNumber(i.fundingRate)) fr = i.fundingRate;
+            if (i && isFiniteNumber(i.nextFundingTime)) next = i.nextFundingTime;
+            httpStatus = 200;
+            // exchange_api has no status field, but if we got here it's a success
+          } catch (e: any) {
+            const latency = Date.now() - t0;
+            ok = false;
+            source = "fallback_zero";
+            httpStatus = 0;
+            errCode = e?.code || e?.name || "UNKNOWN";
+            errMsg = e?.message || String(e) || "unknown error";
+            fr = null; // DO NOT default to 0 — null = failed read
+            mp = null;
+          }
 
+          logger.logFundingSnapshot({
+            cycle, timestamp: ts,
+            exchangeId, symbol: sp.symbol, exchangeSymbol,
+            fundingRate: fr,
+            fundingIntervalHours: 8,
+            nextFundingTime: next,
+            markPrice: mp,
+            source,
+            endpoint,
+            httpStatus,
+            errorCode: errCode,
+            errorMessage: errMsg,
+            retryCount: 0,
+            latencyMs: Date.now() - t0,
+            readOk: ok,
+          });
 
-        // Quantity normalization
+          return { fr, mp, next, ok, errCode, errMsg };
+        }
+
+        const bnResult = await readExchange("binance", connectors.binance, sp.symbol, sp.symbol, "getFundingInfo");
+        const okxResult = await readExchange("okx", connectors.okx, sp.symbol, coin + "-USDT-SWAP", "getFundingInfo");
+        const htxResult = await readExchange("htx", connectors.htx, sp.symbol, coin + "-USDT", "getFundingInfo");
+
+        // Use Binance mark price for normalization (fall back to OKX, then HTX)
+        const mp = bnResult.mp ?? okxResult.mp ?? htxResult.mp ?? 0;
+        const bnFr = bnResult.fr ?? 0;
+        const okxFr = okxResult.fr ?? 0;
+        const htxFr = htxResult.fr ?? 0;
+
+        // Track per-exchange errors
+        if (!bnResult.ok) { errCount++; degradedThisCycle = true; bnFailed++; errorBreakdownByReason[bnResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[bnResult.errCode||"UNKNOWN"]||0)+1; }
+        if (!okxResult.ok) { errCount++; degradedThisCycle = true; okxFailed++; errorBreakdownByReason[okxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[okxResult.errCode||"UNKNOWN"]||0)+1; }
+        if (!htxResult.ok) { errCount++; degradedThisCycle = true; htxFailed++; errorBreakdownByReason[htxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[htxResult.errCode||"UNKNOWN"]||0)+1; }
+        cycleFundingReads += 3; // Always 3 attempts per symbol
+
         // ── Per-symbol evaluation (always logged) ──
 
         // Always compute norm, even if mp <= 0
@@ -290,7 +295,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
             const t = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${sp.symbol}`)).json() as Record<string, unknown>;
             vol = Number(t.quoteVolume ?? 0);
             liqOk = vol >= MIN_VOLUME;
-          } catch { errCount++; degraded = true; }
+          } catch { errCount++; degradedThisCycle = true; blockerParts.push("liq_fetch_error"); }
           if (!liqOk) blockerParts.push(`liq vol=$${(vol / 1e6).toFixed(1)}M`);
         } else {
           blockerParts.push("skipped_liq_norm_failed");
@@ -307,7 +312,6 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         if (candidateViable) {
           try {
             const opps = await findCrossExchangeFundingSpreads(connectors as any, [sp.symbol], { ...DEFAULT_SPREAD_CONFIG, minSpreadRate: 0, minSpreadApy: 0 });
-            totalFundingCalls++;
             cycleFundingReads++;
             if (opps.length > 0) {
               const top = opps[0];
@@ -333,14 +337,14 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
               blockerParts.push("no_spread_opportunity");
               allNoSpread.add(sp.symbol);
             }
-          } catch { errCount++; degraded = true; blockerParts.push("spread_check_error"); }
+          } catch { errCount++; degradedThisCycle = true; blockerParts.push("spread_check_error"); }
         } else {
           if (blockerParts.length === 0) blockerParts.push("not_viable");
         }
 
         if (candidateViable) viable++;
-        if (candidateViable && !normOk) allBlockedQty.add(sp.symbol);
-        if (candidateViable && !liqOk) allBlockedLiq.add(sp.symbol);
+        if (!normOk) allBlockedQty.add(sp.symbol);
+        if (normOk && !liqOk) allBlockedLiq.add(sp.symbol);
 
         // ── Candidate log (ALWAYS written for every symbol) ──
         logger.logCandidate({
@@ -378,22 +382,41 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         bestOpp = { cycle, symbol: bestSym, short: bestShort, long: bestLong, netApy: bestApy };
       }
       actionableObserved += actionable;
-      if (degraded) totalDegraded++;
+      if (degradedThisCycle) totalDegraded++;
       totalErrors += errCount;
+      totalReadsOk += readsOk;
+      totalReadsFailed += readsFailed;
 
       snapshots.push({ cycle, ts, viableCount: viable, actionableCount: actionable, bestNetApy: bestApy, bestSymbol: bestSym, bestShort, bestLong, degraded, errorCount: errCount });
 
       // ── Cycle log ──
+      const snapshotsExpected = symParams.length * 3; // symbols × exchanges
+      const snapshotsWritten = symParams.length * 3; // always written (some with readOk=false)
+      const readsOk = snapshotsExpected - bnFailed - okxFailed - htxFailed;
+      const readsFailed = bnFailed + okxFailed + htxFailed;
+      const degradedList: string[] = [];
+      if (bnFailed > 0) degradedList.push("binance");
+      if (okxFailed > 0) degradedList.push("okx");
+      if (htxFailed > 0) degradedList.push("htx");
+      if (bnFailed > 0) errorBreakdownByExchange["binance"] = bnFailed;
+      if (okxFailed > 0) errorBreakdownByExchange["okx"] = okxFailed;
+      if (htxFailed > 0) errorBreakdownByExchange["htx"] = htxFailed;
+
       logger.logCycle({
         cycle, totalCycles: CYCLES, timestamp: ts,
         symbolsChecked: symParams.length,
-        fundingRatesRead: cycleFundingReads,
+        fundingSnapshotsExpected: snapshotsExpected,
+        fundingSnapshotsWritten: snapshotsWritten,
+        fundingReadsOk: readsOk,
+        fundingReadsFailed: readsFailed,
         viableCandidates: viable,
         actionableOpportunities: actionable,
         bestNetSpreadApy: bestApy,
         readinessStatus: actionableObserved > 0 ? "signal_found" : "waiting_for_spread",
-        degradedExchanges: degraded ? 1 : 0,
-        errors: errCount,
+        degradedExchanges: degradedList,
+        errorBreakdownByExchange,
+        errorBreakdownByReason,
+        totalErrors: errCount,
         privateApiCalled: false,
         mainnetOrderAttempted: false,
         realOrdersExecuted: 0,
@@ -480,7 +503,11 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       maxObservedIntervalMs: maxInterval,
       avgObservedIntervalMs: avgInterval,
       intervals,
-      symbolsChecked: symParams.length, fundingRatesRead: totalFundingCalls,
+      symbolsChecked: symParams.length,
+      fundingSnapshotsExpected: totalReadsOk + totalReadsFailed,
+      fundingSnapshotsWritten: totalReadsOk + totalReadsFailed,
+      fundingReadsOk: totalReadsOk,
+      fundingReadsFailed: totalReadsFailed,
       viableCandidatesObserved: avgViable,
       actionableOpportunitiesObserved: actionableObserved,
       bestOpportunity: bestOpp ?? undefined,
@@ -512,7 +539,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     console.log(`  ║  Cycles:        ${String(report.completedCycles).padStart(3)}/${report.cycles}${" ".repeat(46)}║`);
     console.log(`  ║  ${"─".repeat(74)}║`);
     console.log(`  ║  Min Interval:  ${(minInterval / 1000).toFixed(0)}s    Avg: ${(avgInterval / 1000).toFixed(0)}s    Max: ${(maxInterval / 1000).toFixed(0)}s${" ".repeat(22)}║`);
-    console.log(`  ║  Symbols:       ${String(report.symbolsChecked).padStart(2)}    Funding calls: ${String(report.fundingRatesRead).padStart(6)}${" ".repeat(24)}║`);
+    console.log(`  ║  Symbols:       ${String(report.symbolsChecked).padStart(2)}    Snapshots: ${String(report.fundingSnapshotsWritten).padStart(5)} (ok=${report.fundingReadsOk} fail=${report.fundingReadsFailed})${" ".repeat(10)}║`);
     console.log(`  ║  Viable avg:    ${String(avgViable).padStart(2)}    Actionable:    ${String(report.actionableOpportunitiesObserved).padStart(4)}${" ".repeat(24)}║`);
     console.log(`  ║  Best APY:      ${report.bestNetSpreadApy.toFixed(2).padStart(8)}%${" ".repeat(46)}║`);
     console.log(`  ║  Degraded:      ${String(report.degradedCycles).padStart(3)}    Errors:        ${String(report.errors).padStart(3)}${" ".repeat(24)}║`);
