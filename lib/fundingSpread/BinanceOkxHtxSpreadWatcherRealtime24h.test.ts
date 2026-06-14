@@ -3,18 +3,21 @@
  *
  * Runs 288 cycles with real 5-minute wall-clock intervals.
  * No time compression, no mock timers — a genuine 24-hour test.
- * Tracks every cycle's real timestamp and enforces interval constraints.
+ * Every cycle is logged persistently to data/watcher-runs/<runId>/.
  *
  * ⛔ NO TRADING — READ ONLY
  * ⏸️ SKIPPED by default. Enable with RUN_BINANCE_OKX_HTX_SPREAD_WATCHER_REALTIME_24H=true
  */
 
 import { describe, expect, it } from "vitest";
+import * as fs from "fs";
+import * as path from "path";
 import { RealBinanceConnector } from "../connectors/real/RealBinanceConnector";
 import { RealOkxConnector } from "../connectors/real/RealOkxConnector";
 import { RealHtxConnector } from "../connectors/real/RealHtxConnector";
 import { findCrossExchangeFundingSpreads } from "./fundingSpreadEngine";
 import { DEFAULT_SPREAD_CONFIG } from "./fundingSpreadTypes";
+import { WatcherRunLogger, generateRunId } from "./watcherRunLogger";
 
 const RUN = process.env.RUN_BINANCE_OKX_HTX_SPREAD_WATCHER_REALTIME_24H === "true";
 const ALLOWED = ["binance", "okx", "htx"];
@@ -64,12 +67,41 @@ type Report = {
   mainnetOrderAttempted: boolean; realOrdersExecuted: number;
   postRequests: number; putRequests: number; deleteRequests: number;
   generatedAt: number;
+  /** New: path to the persistent log directory */
+  logDir: string;
 };
 
 describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
-  it("Runs 288 real-time cycles over 24 hours", async () => {
+  it("Runs 288 real-time cycles over 24 hours, logs persistently", async () => {
     expect(ALLOWED).toEqual(["binance", "okx", "htx"]);
     expect(PAUSED).toEqual(expect.arrayContaining(["bybit", "bitget", "gate", "hyperliquid"]));
+
+    // ── Persistent Logger ──
+    const runId = generateRunId();
+    const startedAt = Date.now();
+    const expectedEndedAt = startedAt + WALL_CLOCK_24H_MS;
+
+    const logger = new WatcherRunLogger({
+      runId,
+      mode: "realtime",
+      startedAt,
+      expectedEndedAt,
+      enabledExchanges: ALLOWED,
+      pausedExchanges: PAUSED,
+      symbols: ["BTCUSDT","ETHUSDT","SOLUSDT","FILUSDT","ASTERUSDT","GIGGLEUSDT","SUSHIUSDT","ENSUSDT","SSVUSDT"],
+      thresholds: {
+        minNetSpreadApy: MIN_SPREAD_APY,
+        maxNotionalMismatchPercent: MAX_MISMATCH,
+        min24hVolumeUsd: MIN_VOLUME,
+        requireSignalFreshnessMs: 5 * 60 * 1000,
+      },
+      intervalMs: INTERVAL_MS,
+      totalCycles: CYCLES,
+      realOrdersExecuted: 0,
+      postRequests: 0,
+      putRequests: 0,
+      deleteRequests: 0,
+    });
 
     const connectors = { binance: new RealBinanceConnector(), okx: new RealOkxConnector(), htx: new RealHtxConnector() };
 
@@ -104,7 +136,6 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       symParams.push({ symbol, target, coin, bnS, okxInst, htxInst, bnLot, bnSt, bnMinN, okxCt, okxLt, htxCt });
     }
 
-    const startedAt = Date.now();
     const snapshots: CycleSnapshot[] = [];
     const allBlockedQty = new Set<string>();
     const allBlockedLiq = new Set<string>();
@@ -119,7 +150,8 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     const intervals: IntervalRecord[] = [];
     let lastTs = startedAt;
 
-    process.stdout.write(`\n  Real-Time 24h Watcher started at ${new Date(startedAt).toISOString()}\n`);
+    process.stdout.write(`\n  Real-Time 24h Watcher [${runId}] started at ${new Date(startedAt).toISOString()}\n`);
+    process.stdout.write(`  Logging to: ${logger.directory}\n`);
     process.stdout.write(`  Running ${CYCLES} cycles × ${INTERVAL_MS / 1000}s intervals = ${(WALL_CLOCK_24H_MS / 3600000).toFixed(0)}h\n\n`);
 
     for (let cycle = 0; cycle < CYCLES; cycle++) {
@@ -139,56 +171,140 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       let bestLong = "";
       let degraded = false;
       let errCount = 0;
+      let cycleFundingReads = 0;
 
       for (const sp of symParams) {
+        const coin = sp.coin;
         let mp = 0;
+        let bnFr = 0;
+        let bnNext = null;
+        let bnOk = false;
+
+        // ── Binance funding snapshot ──
         try {
           const i = await connectors.binance.getFundingInfo(sp.symbol);
           if (i && isFiniteNumber(i.markPrice)) mp = i.markPrice;
+          if (i && isFiniteNumber(i.fundingRate)) bnFr = i.fundingRate;
+          if (i && isFiniteNumber(i.nextFundingTime)) bnNext = i.nextFundingTime;
+          bnOk = true;
           totalFundingCalls++;
-        } catch { errCount++; degraded = true; continue; }
+          cycleFundingReads++;
+        } catch { errCount++; degraded = true; }
+        logger.logFundingSnapshot({
+          cycle, timestamp: ts,
+          exchangeId: "binance", symbol: sp.symbol,
+          exchangeSymbol: sp.symbol,
+          fundingRate: bnFr,
+          fundingIntervalHours: 8,
+          nextFundingTime: bnNext,
+          markPrice: mp,
+          readOk: bnOk,
+          error: bnOk ? null : "read failed",
+        });
+
+        // ── OKX funding snapshot ──
+        let okxFr = 0;
+        let okxNext = null;
+        let okxReadOk = false;
+        try {
+          const i = await connectors.okx.getFundingInfo(coin + "-USDT-SWAP");
+          if (i && isFiniteNumber(i.fundingRate)) okxFr = i.fundingRate;
+          if (i && isFiniteNumber(i.nextFundingTime)) okxNext = i.nextFundingTime;
+          okxReadOk = true;
+          totalFundingCalls++;
+          cycleFundingReads++;
+        } catch { errCount++; degraded = true; }
+        logger.logFundingSnapshot({
+          cycle, timestamp: ts,
+          exchangeId: "okx", symbol: sp.symbol,
+          exchangeSymbol: coin + "-USDT-SWAP",
+          fundingRate: okxFr,
+          fundingIntervalHours: 8,
+          nextFundingTime: okxNext,
+          markPrice: mp,
+          readOk: okxReadOk,
+          error: okxReadOk ? null : "read failed",
+        });
+
+        // ── HTX funding snapshot ──
+        let htxFr = 0;
+        let htxNext = null;
+        let htxReadOk = false;
+        try {
+          const i = await connectors.htx.getFundingInfo(coin);
+          if (i && isFiniteNumber(i.fundingRate)) htxFr = i.fundingRate;
+          if (i && isFiniteNumber(i.nextFundingTime)) htxNext = i.nextFundingTime;
+          htxReadOk = true;
+          totalFundingCalls++;
+          cycleFundingReads++;
+        } catch { errCount++; degraded = true; }
+        logger.logFundingSnapshot({
+          cycle, timestamp: ts,
+          exchangeId: "htx", symbol: sp.symbol,
+          exchangeSymbol: coin + "-USDT",
+          fundingRate: htxFr,
+          fundingIntervalHours: 8,
+          nextFundingTime: htxNext,
+          markPrice: mp,
+          readOk: htxReadOk,
+          error: htxReadOk ? null : "read failed",
+        });
+
         if (mp <= 0) { errCount++; continue; }
 
-        const bnQ = Math.floor(sp.target / mp / sp.bnSt) * sp.bnSt;
-        const bnN = bnQ * mp;
-        const bnOk = bnQ > 0 && bnN >= sp.bnMinN;
-        const okxQ = Math.floor(sp.target / (mp * sp.okxCt) / sp.okxLt) * sp.okxLt;
-        const okxN = okxQ * mp * sp.okxCt;
-        const okxOk = okxQ > 0 && okxN >= 5;
-        const htxQ = Math.floor(sp.target / (sp.htxCt * mp) / 1) * 1;
-        const htxN = htxQ * sp.htxCt * mp;
-        const htxOk = htxQ > 0 && htxN >= 5;
+        // Quantity normalization
+        const bnQt = Math.floor(sp.target / mp / sp.bnSt) * sp.bnSt;
+        const bnN = bnQt * mp;
+        const bnV = bnQt > 0 && bnN >= sp.bnMinN;
+        const okxQt = Math.floor(sp.target / (mp * sp.okxCt) / sp.okxLt) * sp.okxLt;
+        const okxN = okxQt * mp * sp.okxCt;
+        const okxV = okxQt > 0 && okxN >= 5;
+        const htxQt = Math.floor(sp.target / (sp.htxCt * mp) / 1) * 1;
+        const htxN = htxQt * sp.htxCt * mp;
+        const htxV = htxQt > 0 && htxN >= 5;
         const ns = [bnN, okxN, htxN].filter((n) => n > 0);
         const mm = ns.length >= 2 ? (Math.max(...ns) - Math.min(...ns)) / Math.max(...ns) * 100 : 0;
-        const normOk = bnOk && okxOk && htxOk && mm <= MAX_MISMATCH;
+        const normOk = bnV && okxV && htxV && mm <= MAX_MISMATCH;
         if (!normOk) { allBlockedQty.add(sp.symbol); continue; }
 
+        // Liquidity
         let liqOk = false;
+        let vol = 0;
         try {
           const t = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${sp.symbol}`)).json() as Record<string, unknown>;
-          const vol = Number(t.quoteVolume ?? 0);
+          vol = Number(t.quoteVolume ?? 0);
           liqOk = vol >= MIN_VOLUME;
-        } catch { errCount++; degraded = true; continue; }
+        } catch { errCount++; degraded = true; }
         if (!liqOk) { allBlockedLiq.add(sp.symbol); continue; }
 
         viable++;
 
+        // Funding spread
+        let fundingFound = false;
+        let sprApy = 0;
+        let netSprApy = 0;
+        let shortEx = "";
+        let longEx = "";
         try {
           const opps = await findCrossExchangeFundingSpreads(connectors as any, [sp.symbol], { ...DEFAULT_SPREAD_CONFIG, minSpreadRate: 0, minSpreadApy: 0 });
           totalFundingCalls++;
+          cycleFundingReads++;
           if (opps.length > 0) {
             const top = opps[0];
-            if (top.netSpreadApy > bestApy) {
-              bestApy = top.netSpreadApy;
+            fundingFound = top.netSpreadApy >= MIN_SPREAD_APY;
+            sprApy = top.spreadApy;
+            netSprApy = top.netSpreadApy;
+            shortEx = top.shortExchangeId;
+            longEx = top.longExchangeId;
+            if (netSprApy > bestApy) {
+              bestApy = netSprApy;
               bestSym = sp.symbol;
-              bestShort = top.shortExchangeId;
-              bestLong = top.longExchangeId;
+              bestShort = shortEx;
+              bestLong = longEx;
             }
-            if (top.netSpreadApy >= MIN_SPREAD_APY) {
+            if (fundingFound) {
               actionable++;
-              if (!firstOpp) {
-                firstOpp = { cycle, symbol: sp.symbol, short: top.shortExchangeId, long: top.longExchangeId, netApy: top.netSpreadApy };
-              }
+              if (!firstOpp) firstOpp = { cycle, symbol: sp.symbol, short: shortEx, long: longEx, netApy: netSprApy };
             } else {
               allNoSpread.add(sp.symbol);
             }
@@ -196,6 +312,40 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
             allNoSpread.add(sp.symbol);
           }
         } catch { errCount++; degraded = true; }
+
+        // ── Candidate log ──
+        const blockerReason = !normOk ? `norm BN=$${bnN.toFixed(2)} OKX=$${okxN.toFixed(2)} HTX=$${htxN.toFixed(2)} mm=${mm.toFixed(1)}%` :
+          !liqOk ? `liq vol=$${(vol / 1e6).toFixed(1)}M` :
+          !fundingFound ? `spread APY=${netSprApy.toFixed(2)}%` : null;
+
+        logger.logCandidate({
+          cycle, timestamp: ts,
+          symbol: sp.symbol,
+          targetNotionalUsd: sp.target,
+          quantityNormalizationPassed: normOk,
+          liquidityGuardPassed: liqOk,
+          fundingOpportunityFound: fundingFound,
+          netSpreadApy: netSprApy,
+          blockerReason,
+        });
+
+        // ── Signal log (if actionable) ──
+        if (fundingFound) {
+          logger.logSignal({
+            cycle, timestamp: ts,
+            symbol: sp.symbol,
+            shortExchange: shortEx,
+            longExchange: longEx,
+            spreadRate: sprApy / (3 * 365) / 100, // convert APY back to per-8h rate
+            spreadApy: sprApy,
+            netSpreadApy: netSprApy,
+            targetNotionalUsd: sp.target,
+            quantityNormalizationPassed: normOk,
+            liquidityGuardPassed: liqOk,
+            signalFreshUntil: ts + 5 * 60 * 1000,
+            action: "signal_only_no_trade",
+          });
+        }
       }
 
       if (bestApy > bestEverApy) {
@@ -205,7 +355,27 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       actionableObserved += actionable;
       if (degraded) totalDegraded++;
       totalErrors += errCount;
+
       snapshots.push({ cycle, ts, viableCount: viable, actionableCount: actionable, bestNetApy: bestApy, bestSymbol: bestSym, bestShort, bestLong, degraded, errorCount: errCount });
+
+      // ── Cycle log ──
+      logger.logCycle({
+        cycle, totalCycles: CYCLES, timestamp: ts,
+        symbolsChecked: symParams.length,
+        fundingRatesRead: cycleFundingReads,
+        viableCandidates: viable,
+        actionableOpportunities: actionable,
+        bestNetSpreadApy: bestApy,
+        readinessStatus: actionableObserved > 0 ? "signal_found" : "waiting_for_spread",
+        degradedExchanges: degraded ? 1 : 0,
+        errors: errCount,
+        privateApiCalled: false,
+        mainnetOrderAttempted: false,
+        realOrdersExecuted: 0,
+        postRequests: 0,
+        putRequests: 0,
+        deleteRequests: 0,
+      });
 
       // Log every 6 hours (72 cycles)
       if ((cycle + 1) % 72 === 0 || cycle === 0 || cycle === CYCLES - 1) {
@@ -224,13 +394,15 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
 
     const endedAt = Date.now();
     const wallClockDurationMs = endedAt - startedAt;
-    const actualIntervals = intervals.slice(1); // skip cycle 0 (dt=0)
+    const actualIntervals = intervals.slice(1);
     const minInterval = Math.min(...actualIntervals.map((i) => i.dt));
     const maxInterval = Math.max(...actualIntervals.map((i) => i.dt));
     const avgInterval = actualIntervals.reduce((s, i) => s + i.dt, 0) / actualIntervals.length;
     const avgViable = Math.round(snapshots.reduce((s, c) => s + c.viableCount, 0) / snapshots.length);
 
-    // Reconstruct snapshots for avgViable calc — collect during loop
+    // ── Finalize logger ──
+    const summary = logger.finalize();
+
     const report: Report = {
       mode: "realtime",
       startedAt, endedAt, wallClockDurationMs,
@@ -241,7 +413,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       avgObservedIntervalMs: avgInterval,
       intervals,
       symbolsChecked: symParams.length, fundingRatesRead: totalFundingCalls,
-      viableCandidatesObserved: 0, // computed below
+      viableCandidatesObserved: avgViable,
       actionableOpportunitiesObserved: actionableObserved,
       bestOpportunity: bestOpp ?? undefined,
       bestNetSpreadApy: bestEverApy,
@@ -256,6 +428,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       mainnetOrderAttempted: false, realOrdersExecuted: 0,
       postRequests: 0, putRequests: 0, deleteRequests: 0,
       generatedAt: Date.now(),
+      logDir: logger.directory,
     };
 
     const elapsedStr = new Date(wallClockDurationMs).toISOString().substring(11, 19);
@@ -263,6 +436,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     console.log(`\n  ╔══════════════════════════════════════════════════════════════════════════╗`);
     console.log(`  ║     BINANCE+OKX+HTX SPREAD WATCHER REAL-TIME 24H REPORT           ║`);
     console.log(`  ╠══════════════════════════════════════════════════════════════════════════╣`);
+    console.log(`  ║  Run ID:       ${runId}${" ".repeat(Math.max(0, 60 - runId.length))}║`);
     console.log(`  ║  Mode:          real-time${" ".repeat(54)}║`);
     console.log(`  ║  Started:       ${new Date(startedAt).toISOString()}${" ".repeat(12)}║`);
     console.log(`  ║  Ended:         ${new Date(endedAt).toISOString()}${" ".repeat(12)}║`);
@@ -278,13 +452,32 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       console.log(`  ║  BEST: ${report.bestOpportunity.symbol} ${report.bestOpportunity.short}→${report.bestOpportunity.long} APY=${report.bestOpportunity.netApy.toFixed(2)}%${" ".repeat(24)}║`);
     }
     console.log(`  ║  Readiness:     ${report.readinessStatus.padEnd(52)}║`);
+    console.log(`  ║  Log Dir:       ${report.logDir}${" ".repeat(Math.max(0, 55 - report.logDir.length))}║`);
     console.log(`  ║  ${" ".repeat(90)}║`);
     console.log(`  ║  Mainnet Attempt:  false${" ".repeat(50)}║`);
     console.log(`  ║  Real Orders:      0${" ".repeat(54)}║`);
     console.log(`  ║  POST/PUT/DEL:     0/0/0${" ".repeat(48)}║`);
     console.log(`  ╚══════════════════════════════════════════════════════════════════════════╝\n`);
 
-    // ————— HARD ASSERTIONS —————
+    // ── Verify persistent files ──
+    expect(fs.existsSync(path.join(logger.directory, "run.json"))).toBe(true);
+    expect(fs.existsSync(path.join(logger.directory, "cycles.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(logger.directory, "funding-snapshots.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(logger.directory, "candidates.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(logger.directory, "signals.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(logger.directory, "summary.json"))).toBe(true);
+
+    // Verify JSONL parseability
+    for (const file of ["cycles.jsonl", "funding-snapshots.jsonl", "candidates.jsonl"]) {
+      const content = fs.readFileSync(path.join(logger.directory, file), "utf8").trim();
+      for (const line of content.split("\n")) {
+        const parsed = JSON.parse(line);
+        expect(parsed.runId).toBe(runId);
+        expect(typeof parsed.cycle).toBe("number");
+      }
+    }
+
+    // ── HARD ASSERTIONS ──
     expect(report.mode).toBe("realtime");
     expect(wallClockDurationMs).toBeGreaterThanOrEqual(WALL_CLOCK_24H_MS);
     expect(report.completedCycles).toBe(CYCLES);
