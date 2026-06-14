@@ -22,9 +22,9 @@ import { WatcherRunLogger, generateRunId } from "./watcherRunLogger";
 const RUN = process.env.RUN_BINANCE_OKX_HTX_SPREAD_WATCHER_REALTIME_24H === "true";
 const ALLOWED = ["binance", "okx", "htx"];
 const PAUSED = ["bybit", "bitget", "gate", "hyperliquid"];
-const CYCLES = 288;
-const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const MIN_INTERVAL_MS = 4.5 * 60 * 1000; // allow ~30s network jitter
+const CYCLES = 480; // 480 cycles × 3min = 24h
+const INTERVAL_MS = 3 * 60 * 1000; // 3 minutes
+const MIN_INTERVAL_MS = 2.5 * 60 * 1000; // allow ~30s network jitter
 const MIN_SPREAD_APY = 3;
 const MAX_MISMATCH = 1;
 const MIN_VOLUME = 10_000_000;
@@ -113,62 +113,71 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       (await fetch("https://api.hbdm.com/linear-swap-api/v1/swap_contract_info")).json(),
     ]);
 
-    // Build symbol sets from each exchange (USDT-margined only)
-    const bnSet = new Set(
-      (infoBN.symbols as any[])
-        .filter((s: any) => s.symbol.endsWith("USDT") && s.contractType === "PERPETUAL")
-        .map((s: any) => s.symbol)
-    );
-    const okxSet = new Set(
-      (okxData.data as any[])
-        .filter((d: any) => d.instId.endsWith("-USDT-SWAP"))
-        .map((d: any) => d.instId.replace("-USDT-SWAP", "USDT"))
-    );
-    const htxSet = new Set(
-      (htxData.data as any[])
-        .filter((d: any) => d.contract_code.endsWith("-USDT"))
-        .map((d: any) => d.contract_code.replace("-USDT", "USDT"))
-    );
-
-    // Intersection: symbols on ALL 3 exchanges
-    const allSymbols = [...bnSet].filter((s) => okxSet.has(s) && htxSet.has(s)).sort();
-
-    type SymP = {
-      symbol: string; target: number; coin: string;
-      bnS: any; okxInst: any; htxInst: any;
-      bnSt: number; bnMinN: number; okxCt: number; okxLt: number; htxCt: number;
-    };
-
-    const symParams: SymP[] = [];
-    for (const symbol of allSymbols) {
-      const bnS = infoBN.symbols.find((s: any) => s.symbol === symbol);
-      const coin = symbol.replace("USDT", "");
-      const okxInst = okxData.data.find((d: any) => d.instId === coin + "-USDT-SWAP");
-      const htxInst = htxData.data.find((d: any) => d.contract_code === coin + "-USDT");
-      if (!bnS || !okxInst || !htxInst) continue;
-
-      const bnLot = bnS.filters.find((f: any) => f.filterType === "LOT_SIZE");
-      const bnSt = Number(bnLot?.stepSize ?? 0.1);
-      const bnMinN = Number(bnS.filters.find((f: any) => f.filterType === "MIN_NOTIONAL")?.notional ?? 5);
-      const okxCt = Number(okxInst.ctVal ?? 0.1);
-      const okxLt = Number(okxInst.lotSz ?? 0.1);
-      const htxCt = Number(htxInst.contract_size ?? 0.1);
-
-      // Dynamic target notional: at least $5, scaled by minNotional and lot size
-      const target = Math.max(5, bnMinN * 2);
-
-      symParams.push({ symbol, target, coin, bnS, okxInst, htxInst, bnSt, bnMinN, okxCt, okxLt, htxCt });
+    // Build per-exchange symbol maps
+    type ExData = { symbol: string; coin: string; bnS?: any; okxInst?: any; htxInst?: any; };
+    const bnMap = new Map<string, any>();
+    for (const s of (infoBN.symbols as any[]).filter((s: any) => s.symbol.endsWith("USDT") && s.contractType === "PERPETUAL")) {
+      bnMap.set(s.symbol, s);
+    }
+    const okxMap = new Map<string, any>();
+    for (const d of (okxData.data as any[]).filter((d: any) => d.instId.endsWith("-USDT-SWAP"))) {
+      okxMap.set(d.instId.replace("-USDT-SWAP", "USDT"), d);
+    }
+    const htxMap = new Map<string, any>();
+    for (const d of (htxData.data as any[]).filter((d: any) => d.contract_code.endsWith("-USDT"))) {
+      htxMap.set(d.contract_code.replace("-USDT", "USDT"), d);
     }
 
-    // Update logger with actual symbol count and list
+    // Union: any USDT perpetual listed on ≥2 exchanges (binance pairs are canonical)
+    const allSymbols = [...new Set([...bnMap.keys(), ...okxMap.keys(), ...htxMap.keys()])]
+      .filter((s) => {
+        const count = (bnMap.has(s) ? 1 : 0) + (okxMap.has(s) ? 1 : 0) + (htxMap.has(s) ? 1 : 0);
+        return count >= 2;
+      })
+      .sort();
+
+    type SymData = {
+      symbol: string; coin: string;
+      hasBN: boolean; hasOKX: boolean; hasHTX: boolean;
+      bnS?: any; okxInst?: any; htxInst?: any;
+      bnSt: number; bnMinN: number; okxCt: number; okxLt: number; htxCt: number;
+      target: number;
+    };
+
+    const symParams: SymData[] = [];
+    for (const symbol of allSymbols) {
+      const coin = symbol.replace("USDT", "");
+      const bnS = bnMap.get(symbol);
+      const okxInst = okxMap.get(symbol);
+      const htxInst = htxMap.get(symbol);
+      // At least 2 exchanges confirmed above, but still might not have all params
+      const bnLot = bnS?.filters?.find((f: any) => f.filterType === "LOT_SIZE");
+      const bnSt = Number(bnLot?.stepSize ?? 0.1);
+      const bnMinN = Number(bnS?.filters?.find((f: any) => f.filterType === "MIN_NOTIONAL")?.notional ?? 5);
+      const okxCt = Number(okxInst?.ctVal ?? 0.1);
+      const okxLt = Number(okxInst?.lotSz ?? 0.1);
+      const htxCt = Number(htxInst?.contract_size ?? 0.1);
+      const target = Math.max(5, bnMinN * 2);
+
+      symParams.push({
+        symbol, coin,
+        hasBN: !!bnS, hasOKX: !!okxInst, hasHTX: !!htxInst,
+        bnS, okxInst, htxInst,
+        bnSt, bnMinN, okxCt, okxLt, htxCt,
+        target,
+      });
+    }
+
+    // Update run.json with actual symbol list
     const discoveredSymbols = symParams.map((sp) => sp.symbol);
-    // Overwrite run.json with accurate symbol list
     const runJsonPath = path.join(logger.directory, "run.json");
     const runJson = JSON.parse(fs.readFileSync(runJsonPath, "utf8"));
     runJson.symbols = discoveredSymbols;
     fs.writeFileSync(runJsonPath, JSON.stringify(runJson, null, 2), "utf8");
 
-    process.stdout.write(`  Discovered ${symParams.length} symbols common to all 3 exchanges\n`);
+    process.stdout.write(`  Discovered ${symParams.length} symbols (≥2 exchanges, ${snapsPerCycle} snaps/cycle, ${candsPerCycle} cands/cycle)\n`);
+    const snapsPerCycle = symParams.reduce((s, sp) => s + (sp.hasBN ? 1 : 0) + (sp.hasOKX ? 1 : 0) + (sp.hasHTX ? 1 : 0), 0);
+    const candsPerCycle = symParams.length;
 
     const snapshots: CycleSnapshot[] = [];
     const allBlockedQty = new Set<string>();
@@ -275,9 +284,17 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
           return { fr, mp, next, ok, errCode, errMsg };
         }
 
-        const bnResult = await readExchange("binance", connectors.binance, sp.symbol, sp.symbol, "getFundingInfo");
-        const okxResult = await readExchange("okx", connectors.okx, sp.symbol, coin + "-USDT-SWAP", "getFundingInfo");
-        const htxResult = await readExchange("htx", connectors.htx, sp.symbol, coin + "-USDT", "getFundingInfo");
+        const bnResult = sp.hasBN
+          ? await readExchange("binance", connectors.binance, sp.symbol, sp.symbol, "getFundingInfo")
+          : { fr: null, mp: null, next: null, ok: false, errCode: "NOT_LISTED", errMsg: "Symbol not on Binance" };
+        const okxResult = sp.hasOKX
+          ? await readExchange("okx", connectors.okx, sp.symbol, coin + "-USDT-SWAP", "getFundingInfo")
+          : { fr: null, mp: null, next: null, ok: false, errCode: "NOT_LISTED", errMsg: "Symbol not on OKX" };
+        const htxResult = sp.hasHTX
+          ? await readExchange("htx", connectors.htx, sp.symbol, coin + "-USDT", "getFundingInfo")
+          : { fr: null, mp: null, next: null, ok: false, errCode: "NOT_LISTED", errMsg: "Symbol not on HTX" };
+        const exchCountThisSym = (sp.hasBN ? 1 : 0) + (sp.hasOKX ? 1 : 0) + (sp.hasHTX ? 1 : 0);
+        cycleFundingReads += exchCountThisSym;
 
         // Per-exchange mark prices for normalization
         const bnMp = bnResult.mp;
@@ -289,11 +306,10 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         // Combined mp for blocker messages (not used for notional calc)
         const mp = bnMp ?? okxMp ?? htxMp ?? 0;
 
-        // Track per-exchange errors
-        if (!bnResult.ok) { errCount++; degradedThisCycle = true; bnFailed++; errorBreakdownByReason[bnResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[bnResult.errCode||"UNKNOWN"]||0)+1; }
-        if (!okxResult.ok) { errCount++; degradedThisCycle = true; okxFailed++; errorBreakdownByReason[okxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[okxResult.errCode||"UNKNOWN"]||0)+1; }
-        if (!htxResult.ok) { errCount++; degradedThisCycle = true; htxFailed++; errorBreakdownByReason[htxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[htxResult.errCode||"UNKNOWN"]||0)+1; }
-        cycleFundingReads += 3; // Always 3 attempts per symbol
+        // Track per-exchange errors (only failed reads, not "not listed")
+        if (sp.hasBN && !bnResult.ok) { errCount++; degradedThisCycle = true; bnFailed++; errorBreakdownByReason[bnResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[bnResult.errCode||"UNKNOWN"]||0)+1; }
+        if (sp.hasOKX && !okxResult.ok) { errCount++; degradedThisCycle = true; okxFailed++; errorBreakdownByReason[okxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[okxResult.errCode||"UNKNOWN"]||0)+1; }
+        if (sp.hasHTX && !htxResult.ok) { errCount++; degradedThisCycle = true; htxFailed++; errorBreakdownByReason[htxResult.errCode||"UNKNOWN"] = (errorBreakdownByReason[htxResult.errCode||"UNKNOWN"]||0)+1; }
 
         // ── Per-symbol evaluation (always logged) ──
 
@@ -417,8 +433,9 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       }
 
       // ── Compute cycle metrics ──
-      const snapshotsExpected = symParams.length * 3;
-      const snapshotsWritten = symParams.length * 3;
+      const exchTotal = symParams.reduce((s, sp) => s + (sp.hasBN ? 1 : 0) + (sp.hasOKX ? 1 : 0) + (sp.hasHTX ? 1 : 0), 0);
+      const snapshotsExpected = exchTotal;
+      const snapshotsWritten = exchTotal;
       const readsOk = snapshotsExpected - bnFailed - okxFailed - htxFailed;
       const readsFailed = bnFailed + okxFailed + htxFailed;
 
@@ -466,8 +483,8 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         deleteRequests: 0,
       });
 
-      // ── Persistent Log Audit (every 6h) ──
-      if ((cycle + 1) % 72 === 0) {
+      // ── Persistent Log Audit (every ~6h = 120 cycles) ──
+      if ((cycle + 1) % 120 === 0) {
         const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
         const hms = new Date(elapsed * 1000).toISOString().substring(11, 19);
         const auditDir = logger.directory;
@@ -502,8 +519,8 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         process.stdout.write(`  ║     PERSISTENT LOG AUDIT  ──  cycle ${String(cycle + 1).padStart(3)}/${CYCLES}  ${hms} elapsed              ║\n`);
         process.stdout.write(`  ╠══════════════════════════════════════════════════════════════════════════╣\n`);
         process.stdout.write(`  ║  1. cycles.jsonl             ${String(cycleLines.length).padStart(5)} lines ${cycleLines.length >= (cycle+1) ? "✅" : "❌"}${" ".repeat(43)}║\n`);
-        process.stdout.write(`  ║  2. funding-snapshots.jsonl  ${String(snapLines.length).padStart(5)} lines ${snapLines.length >= (cycle+1)*27 ? "✅" : "❌"}${" ".repeat(43)}║\n`);
-        process.stdout.write(`  ║  3. candidates.jsonl         ${String(candLines.length).padStart(5)} lines ${candLines.length >= (cycle+1)*9 ? "✅" : "❌"}${" ".repeat(43)}║\n`);
+        process.stdout.write(`  ║  2. funding-snapshots.jsonl  ${String(snapLines.length).padStart(6)} lines ${snapLines.length >= (cycle+1)*snapsPerCycle ? "✅" : "❌"}${" ".repeat(42)}║\n`);
+        process.stdout.write(`  ║  3. candidates.jsonl         ${String(candLines.length).padStart(5)} lines ${candLines.length >= (cycle+1)*candsPerCycle ? "✅" : "❌"}${" ".repeat(43)}║\n`);
         process.stdout.write(`  ║  4. signals.jsonl            ${String(sigNonEmpty.length).padStart(5)} lines${" ".repeat(46)}║\n`);
         process.stdout.write(`  ║  5. Last cycle:              cycle=${String(cycleLines.length > 0 ? JSON.parse(cycleLines[cycleLines.length-1]).cycle : -1).padStart(3)} viable=${JSON.parse(cycleLines[cycleLines.length-1]).viableCandidates} actionable=${JSON.parse(cycleLines[cycleLines.length-1]).actionableOpportunities}${" ".repeat(10)}║\n`);
         process.stdout.write(`  ║  6. Last snapshot:           ${snapLines.length > 0 ? JSON.parse(snapLines[snapLines.length-1]).exchangeId+"/"+JSON.parse(snapLines[snapLines.length-1]).symbol+" fr="+JSON.parse(snapLines[snapLines.length-1]).fundingRate : "N/A"}${" ".repeat(20)}║\n`);
