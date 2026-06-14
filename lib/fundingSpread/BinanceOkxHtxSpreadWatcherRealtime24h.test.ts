@@ -169,6 +169,8 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     fs.writeFileSync(runJsonPath, JSON.stringify(runJson, null, 2), "utf8");
 
     process.stdout.write(`  Discovered ${symParams.length} symbols common to all 3 exchanges\n`);
+
+    const snapshots: CycleSnapshot[] = [];
     const allBlockedQty = new Set<string>();
     const allBlockedLiq = new Set<string>();
     const allNoSpread = new Set<string>();
