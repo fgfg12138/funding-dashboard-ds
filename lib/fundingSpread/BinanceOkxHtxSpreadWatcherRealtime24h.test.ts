@@ -250,74 +250,99 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
           error: htxReadOk ? null : "read failed",
         });
 
-        if (mp <= 0) { errCount++; continue; }
 
         // Quantity normalization
-        const bnQt = Math.floor(sp.target / mp / sp.bnSt) * sp.bnSt;
-        const bnN = bnQt * mp;
-        const bnV = bnQt > 0 && bnN >= sp.bnMinN;
-        const okxQt = Math.floor(sp.target / (mp * sp.okxCt) / sp.okxLt) * sp.okxLt;
-        const okxN = okxQt * mp * sp.okxCt;
-        const okxV = okxQt > 0 && okxN >= 5;
-        const htxQt = Math.floor(sp.target / (sp.htxCt * mp) / 1) * 1;
-        const htxN = htxQt * sp.htxCt * mp;
-        const htxV = htxQt > 0 && htxN >= 5;
-        const ns = [bnN, okxN, htxN].filter((n) => n > 0);
-        const mm = ns.length >= 2 ? (Math.max(...ns) - Math.min(...ns)) / Math.max(...ns) * 100 : 0;
-        const normOk = bnV && okxV && htxV && mm <= MAX_MISMATCH;
-        if (!normOk) { allBlockedQty.add(sp.symbol); continue; }
+        // ── Per-symbol evaluation (always logged) ──
 
-        // Liquidity
+        // Always compute norm, even if mp <= 0
+        let bnQt = 0, bnN = 0, bnV = false;
+        let okxQt = 0, okxN = 0, okxV = false;
+        let htxQt = 0, htxN = 0, htxV = false;
+        let mm = 0;
+        let normOk = false;
+        let blockerParts: string[] = [];
+
+        if (mp <= 0) {
+          blockerParts.push("no_mark_price");
+        } else {
+          bnQt = Math.floor(sp.target / mp / sp.bnSt) * sp.bnSt;
+          bnN = bnQt * mp;
+          bnV = bnQt > 0 && bnN >= sp.bnMinN;
+          okxQt = Math.floor(sp.target / (mp * sp.okxCt) / sp.okxLt) * sp.okxLt;
+          okxN = okxQt * mp * sp.okxCt;
+          okxV = okxQt > 0 && okxN >= 5;
+          htxQt = Math.floor(sp.target / (sp.htxCt * mp) / 1) * 1;
+          htxN = htxQt * sp.htxCt * mp;
+          htxV = htxQt > 0 && htxN >= 5;
+          const ns = [bnN, okxN, htxN].filter((n) => n > 0);
+          mm = ns.length >= 2 ? (Math.max(...ns) - Math.min(...ns)) / Math.max(...ns) * 100 : 0;
+          normOk = bnV && okxV && htxV && mm <= MAX_MISMATCH;
+          if (!normOk) {
+            blockerParts.push(`norm BN=$${bnN.toFixed(2)} OKX=$${okxN.toFixed(2)} HTX=$${htxN.toFixed(2)} mm=${mm.toFixed(1)}%`);
+          }
+        }
+
+        // Liquidity (always attempted)
         let liqOk = false;
         let vol = 0;
-        try {
-          const t = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${sp.symbol}`)).json() as Record<string, unknown>;
-          vol = Number(t.quoteVolume ?? 0);
-          liqOk = vol >= MIN_VOLUME;
-        } catch { errCount++; degraded = true; }
-        if (!liqOk) { allBlockedLiq.add(sp.symbol); continue; }
+        if (normOk && mp > 0) {
+          try {
+            const t = await (await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${sp.symbol}`)).json() as Record<string, unknown>;
+            vol = Number(t.quoteVolume ?? 0);
+            liqOk = vol >= MIN_VOLUME;
+          } catch { errCount++; degraded = true; }
+          if (!liqOk) blockerParts.push(`liq vol=$${(vol / 1e6).toFixed(1)}M`);
+        } else {
+          blockerParts.push("skipped_liq_norm_failed");
+        }
 
-        viable++;
-
-        // Funding spread
+        // Funding spread (only for norm+liq passing)
         let fundingFound = false;
         let sprApy = 0;
         let netSprApy = 0;
         let shortEx = "";
         let longEx = "";
-        try {
-          const opps = await findCrossExchangeFundingSpreads(connectors as any, [sp.symbol], { ...DEFAULT_SPREAD_CONFIG, minSpreadRate: 0, minSpreadApy: 0 });
-          totalFundingCalls++;
-          cycleFundingReads++;
-          if (opps.length > 0) {
-            const top = opps[0];
-            fundingFound = top.netSpreadApy >= MIN_SPREAD_APY;
-            sprApy = top.spreadApy;
-            netSprApy = top.netSpreadApy;
-            shortEx = top.shortExchangeId;
-            longEx = top.longExchangeId;
-            if (netSprApy > bestApy) {
-              bestApy = netSprApy;
-              bestSym = sp.symbol;
-              bestShort = shortEx;
-              bestLong = longEx;
-            }
-            if (fundingFound) {
-              actionable++;
-              if (!firstOpp) firstOpp = { cycle, symbol: sp.symbol, short: shortEx, long: longEx, netApy: netSprApy };
+        const candidateViable = normOk && liqOk;
+
+        if (candidateViable) {
+          try {
+            const opps = await findCrossExchangeFundingSpreads(connectors as any, [sp.symbol], { ...DEFAULT_SPREAD_CONFIG, minSpreadRate: 0, minSpreadApy: 0 });
+            totalFundingCalls++;
+            cycleFundingReads++;
+            if (opps.length > 0) {
+              const top = opps[0];
+              fundingFound = top.netSpreadApy >= MIN_SPREAD_APY;
+              sprApy = top.spreadApy;
+              netSprApy = top.netSpreadApy;
+              shortEx = top.shortExchangeId;
+              longEx = top.longExchangeId;
+              if (netSprApy > bestApy) {
+                bestApy = netSprApy;
+                bestSym = sp.symbol;
+                bestShort = shortEx;
+                bestLong = longEx;
+              }
+              if (fundingFound) {
+                actionable++;
+                if (!firstOpp) firstOpp = { cycle, symbol: sp.symbol, short: shortEx, long: longEx, netApy: netSprApy };
+              } else {
+                blockerParts.push(`spread APY=${netSprApy.toFixed(2)}%`);
+                allNoSpread.add(sp.symbol);
+              }
             } else {
+              blockerParts.push("no_spread_opportunity");
               allNoSpread.add(sp.symbol);
             }
-          } else {
-            allNoSpread.add(sp.symbol);
-          }
-        } catch { errCount++; degraded = true; }
+          } catch { errCount++; degraded = true; blockerParts.push("spread_check_error"); }
+        } else {
+          if (blockerParts.length === 0) blockerParts.push("not_viable");
+        }
 
-        // ── Candidate log ──
-        const blockerReason = !normOk ? `norm BN=$${bnN.toFixed(2)} OKX=$${okxN.toFixed(2)} HTX=$${htxN.toFixed(2)} mm=${mm.toFixed(1)}%` :
-          !liqOk ? `liq vol=$${(vol / 1e6).toFixed(1)}M` :
-          !fundingFound ? `spread APY=${netSprApy.toFixed(2)}%` : null;
+        if (candidateViable) viable++;
+        if (candidateViable && !normOk) allBlockedQty.add(sp.symbol);
+        if (candidateViable && !liqOk) allBlockedLiq.add(sp.symbol);
 
+        // ── Candidate log (ALWAYS written for every symbol) ──
         logger.logCandidate({
           cycle, timestamp: ts,
           symbol: sp.symbol,
@@ -326,11 +351,11 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
           liquidityGuardPassed: liqOk,
           fundingOpportunityFound: fundingFound,
           netSpreadApy: netSprApy,
-          blockerReason,
+          blockerReason: blockerParts.length > 0 ? blockerParts.join("; ") : null,
         });
 
-        // ── Signal log (if actionable) ──
-        if (fundingFound) {
+        // ── Signal log (only actionable) ──
+        if (fundingFound && candidateViable) {
           logger.logSignal({
             cycle, timestamp: ts,
             symbol: sp.symbol,
