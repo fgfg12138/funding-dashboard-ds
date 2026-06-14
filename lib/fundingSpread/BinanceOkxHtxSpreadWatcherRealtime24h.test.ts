@@ -206,7 +206,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
             const i = await connector.getFundingInfo(exchangeSymbol);
             const latency = Date.now() - t0;
             if (i && isFiniteNumber(i.markPrice)) { mp = i.markPrice; ok = true; }
-            if (i && isFiniteNumber(i.fundingRate)) fr = i.fundingRate;
+            if (i && isFiniteNumber(i.lastFundingRate)) fr = i.lastFundingRate;
             if (i && isFiniteNumber(i.nextFundingTime)) next = i.nextFundingTime;
             httpStatus = 200;
             // exchange_api has no status field, but if we got here it's a success
@@ -377,6 +377,12 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         }
       }
 
+      // ── Compute cycle metrics ──
+      const snapshotsExpected = symParams.length * 3;
+      const snapshotsWritten = symParams.length * 3;
+      const readsOk = snapshotsExpected - bnFailed - okxFailed - htxFailed;
+      const readsFailed = bnFailed + okxFailed + htxFailed;
+
       if (bestApy > bestEverApy) {
         bestEverApy = bestApy;
         bestOpp = { cycle, symbol: bestSym, short: bestShort, long: bestLong, netApy: bestApy };
@@ -387,13 +393,9 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       totalReadsOk += readsOk;
       totalReadsFailed += readsFailed;
 
-      snapshots.push({ cycle, ts, viableCount: viable, actionableCount: actionable, bestNetApy: bestApy, bestSymbol: bestSym, bestShort, bestLong, degraded, errorCount: errCount });
+      snapshots.push({ cycle, ts, viableCount: viable, actionableCount: actionable, bestNetApy: bestApy, bestSymbol: bestSym, bestShort, bestLong, degraded: degradedThisCycle, errorCount: errCount });
 
       // ── Cycle log ──
-      const snapshotsExpected = symParams.length * 3; // symbols × exchanges
-      const snapshotsWritten = symParams.length * 3; // always written (some with readOk=false)
-      const readsOk = snapshotsExpected - bnFailed - okxFailed - htxFailed;
-      const readsFailed = bnFailed + okxFailed + htxFailed;
       const degradedList: string[] = [];
       if (bnFailed > 0) degradedList.push("binance");
       if (okxFailed > 0) degradedList.push("okx");
