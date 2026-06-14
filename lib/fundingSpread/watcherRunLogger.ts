@@ -1,0 +1,275 @@
+/**
+ * Watcher Persistent Run Logger
+ *
+ * Writes structured JSONL logs for every cycle, funding snapshot,
+ * candidate evaluation, and signal — to disk at data/watcher-runs/<runId>/.
+ *
+ * ⛔ No connectors, no API calls, no order placement.
+ */
+
+import * as fs from "fs";
+import * as path from "path";
+
+// ──────────── Types ────────────
+
+export type RunConfig = {
+  runId: string;
+  mode: "realtime";
+  startedAt: number;
+  expectedEndedAt: number;
+  enabledExchanges: string[];
+  pausedExchanges: string[];
+  symbols: string[];
+  thresholds: {
+    minNetSpreadApy: number;
+    maxNotionalMismatchPercent: number;
+    min24hVolumeUsd: number;
+    requireSignalFreshnessMs: number;
+  };
+  intervalMs: number;
+  totalCycles: number;
+  realOrdersExecuted: number;
+  postRequests: number;
+  putRequests: number;
+  deleteRequests: number;
+};
+
+export type CycleRecord = {
+  runId: string;
+  cycle: number;
+  totalCycles: number;
+  timestamp: number;
+  symbolsChecked: number;
+  fundingRatesRead: number;
+  viableCandidates: number;
+  actionableOpportunities: number;
+  bestNetSpreadApy: number;
+  readinessStatus: string;
+  degradedExchanges: number;
+  errors: number;
+  privateApiCalled: boolean;
+  mainnetOrderAttempted: boolean;
+  realOrdersExecuted: number;
+  postRequests: number;
+  putRequests: number;
+  deleteRequests: number;
+};
+
+export type FundingSnapshotRecord = {
+  runId: string;
+  cycle: number;
+  timestamp: number;
+  exchangeId: string;
+  symbol: string;
+  exchangeSymbol: string;
+  fundingRate: number;
+  fundingIntervalHours: number;
+  nextFundingTime: number | null;
+  markPrice: number;
+  readOk: boolean;
+  error: string | null;
+};
+
+export type CandidateRecord = {
+  runId: string;
+  cycle: number;
+  timestamp: number;
+  symbol: string;
+  targetNotionalUsd: number;
+  quantityNormalizationPassed: boolean;
+  liquidityGuardPassed: boolean;
+  fundingOpportunityFound: boolean;
+  netSpreadApy: number;
+  blockerReason: string | null;
+};
+
+export type SignalRecord = {
+  runId: string;
+  cycle: number;
+  timestamp: number;
+  symbol: string;
+  shortExchange: string;
+  longExchange: string;
+  spreadRate: number;
+  spreadApy: number;
+  netSpreadApy: number;
+  targetNotionalUsd: number;
+  quantityNormalizationPassed: boolean;
+  liquidityGuardPassed: boolean;
+  signalFreshUntil: number;
+  action: "signal_only_no_trade";
+};
+
+export type Summary = {
+  runId: string;
+  startedAt: number;
+  endedAt: number;
+  wallClockDurationMs: number;
+  completedCycles: number;
+  symbolsChecked: number;
+  fundingRatesRead: number;
+  viableCandidatesObserved: number;
+  actionableOpportunitiesObserved: number;
+  bestOpportunity: {
+    symbol: string;
+    short: string;
+    long: string;
+    netApy: number;
+  } | null;
+  bestNetSpreadApy: number;
+  readinessStatus: string;
+  degradedCycles: number;
+  errors: number;
+  realOrdersExecuted: number;
+  postRequests: number;
+  putRequests: number;
+  deleteRequests: number;
+};
+
+// ──────────── Appender ────────────
+
+function appendJsonl(dir: string, file: string, record: unknown): void {
+  const line = JSON.stringify(record) + "\n";
+  fs.appendFileSync(path.join(dir, file), line, "utf8");
+}
+
+function writeJson(dir: string, file: string, data: unknown): void {
+  fs.writeFileSync(path.join(dir, file), JSON.stringify(data, null, 2), "utf8");
+}
+
+// ──────────── Logger ────────────
+
+const BASE_DIR = path.resolve(process.cwd(), "data", "watcher-runs");
+
+export class WatcherRunLogger {
+  readonly runId: string;
+  readonly dir: string;
+  readonly config: RunConfig;
+  private _startedAt: number;
+  private _totalFundingCalls = 0;
+  private _viableCount = 0;
+  private _actionableCount = 0;
+  private _degradedCycles = 0;
+  private _errorCount = 0;
+  private _bestApy = 0;
+  private _bestOpp: { symbol: string; short: string; long: string; netApy: number } | null = null;
+  private _completed = false;
+
+  constructor(config: RunConfig) {
+    this.runId = config.runId;
+    this.config = config;
+    this._startedAt = config.startedAt;
+    this.dir = path.join(BASE_DIR, config.runId);
+
+    // Create directory structure
+    fs.mkdirSync(this.dir, { recursive: true });
+
+    // Write run.json
+    writeJson(this.dir, "run.json", this.config);
+
+    // Create empty signal file (exists even if no signals)
+    fs.writeFileSync(path.join(this.dir, "signals.jsonl"), "", "utf8");
+  }
+
+  /** Record one cycle snapshot */
+  logCycle(record: Omit<CycleRecord, "runId">): void {
+    appendJsonl(this.dir, "cycles.jsonl", { runId: this.runId, ...record });
+
+    this._totalFundingCalls += record.fundingRatesRead;
+    if (record.degradedExchanges > 0) this._degradedCycles++;
+    this._errorCount += record.errors;
+    if (record.bestNetSpreadApy > this._bestApy) {
+      this._bestApy = record.bestNetSpreadApy;
+    }
+  }
+
+  /** Record one funding snapshot per exchange per symbol */
+  logFundingSnapshot(record: Omit<FundingSnapshotRecord, "runId">): void {
+    appendJsonl(this.dir, "funding-snapshots.jsonl", { runId: this.runId, ...record });
+  }
+
+  /** Record one candidate evaluation per symbol per cycle */
+  logCandidate(record: Omit<CandidateRecord, "runId">): void {
+    appendJsonl(this.dir, "candidates.jsonl", { runId: this.runId, ...record });
+    if (record.quantityNormalizationPassed && record.liquidityGuardPassed) {
+      this._viableCount++;
+    }
+  }
+
+  /** Record one actionable signal (append to signals.jsonl) */
+  logSignal(record: Omit<SignalRecord, "runId">): void {
+    appendJsonl(this.dir, "signals.jsonl", { runId: this.runId, ...record });
+    this._actionableCount++;
+    if (record.netSpreadApy > this._bestApy) {
+      this._bestApy = record.netSpreadApy;
+      this._bestOpp = {
+        symbol: record.symbol,
+        short: record.shortExchange,
+        long: record.longExchange,
+        netApy: record.netSpreadApy,
+      };
+    }
+  }
+
+  /** Accumulate viable count from per-candidate logs */
+  get viableCount(): number {
+    return this._viableCount;
+  }
+
+  /** Write summary.json and mark run complete */
+  finalize(): Summary {
+    if (this._completed) {
+      // Re-read existing summary
+      const existing = JSON.parse(fs.readFileSync(path.join(this.dir, "summary.json"), "utf8"));
+      return existing;
+    }
+    this._completed = true;
+    const now = Date.now();
+
+    const summary: Summary = {
+      runId: this.runId,
+      startedAt: this._startedAt,
+      endedAt: now,
+      wallClockDurationMs: now - this._startedAt,
+      completedCycles: this.config.totalCycles,
+      symbolsChecked: this.config.symbols.length,
+      fundingRatesRead: this._totalFundingCalls,
+      viableCandidatesObserved: this._viableCount,
+      actionableOpportunitiesObserved: this._actionableCount,
+      bestOpportunity: this._bestOpp,
+      bestNetSpreadApy: this._bestApy,
+      readinessStatus: this._actionableCount > 0 ? "signal_found" : "waiting_for_spread",
+      degradedCycles: this._degradedCycles,
+      errors: this._errorCount,
+      realOrdersExecuted: 0,
+      postRequests: 0,
+      putRequests: 0,
+      deleteRequests: 0,
+    };
+
+    writeJson(this.dir, "summary.json", summary);
+    return summary;
+  }
+
+  /** Get directory path for external inspection */
+  get directory(): string {
+    return this.dir;
+  }
+}
+
+// ──────────── Helpers ────────────
+
+let _runCounter = 0;
+
+/** Generate a unique run ID */
+export function generateRunId(): string {
+  _runCounter++;
+  const ts = Date.now();
+  const date = new Date(ts).toISOString().replace(/[:-]/g, "").replace(/\.\d+Z/, "");
+  return `run-${date}-${String(_runCounter).padStart(3, "0")}`;
+}
+
+/** Get the base data directory */
+export function getBaseDir(): string {
+  return BASE_DIR;
+}

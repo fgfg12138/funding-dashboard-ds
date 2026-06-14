@@ -147,6 +147,7 @@ describe("Safety — No Mainnet Capability", () => {
     "exchangeRegistry",
     "exchangeRegistryTypes",
     "watcherSignalIntegration",
+    "watcherRunLogger",
     "production-console",
     "local-test-guide",
     "local-feedback",
