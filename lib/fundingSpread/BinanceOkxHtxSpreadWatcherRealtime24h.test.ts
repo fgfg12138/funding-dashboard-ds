@@ -175,9 +175,9 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
     runJson.symbols = discoveredSymbols;
     fs.writeFileSync(runJsonPath, JSON.stringify(runJson, null, 2), "utf8");
 
-    process.stdout.write(`  Discovered ${symParams.length} symbols (≥2 exchanges, ${snapsPerCycle} snaps/cycle, ${candsPerCycle} cands/cycle)\n`);
     const snapsPerCycle = symParams.reduce((s, sp) => s + (sp.hasBN ? 1 : 0) + (sp.hasOKX ? 1 : 0) + (sp.hasHTX ? 1 : 0), 0);
     const candsPerCycle = symParams.length;
+    process.stdout.write(`  Discovered ${symParams.length} symbols (≥2 exchanges, ${snapsPerCycle} snaps/cycle, ${candsPerCycle} cands/cycle)\n`);
 
     const snapshots: CycleSnapshot[] = [];
     const allBlockedQty = new Set<string>();
