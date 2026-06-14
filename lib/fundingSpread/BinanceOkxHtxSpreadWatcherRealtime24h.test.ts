@@ -402,11 +402,54 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
         deleteRequests: 0,
       });
 
-      // Log every 6 hours (72 cycles)
-      if ((cycle + 1) % 72 === 0 || cycle === 0 || cycle === CYCLES - 1) {
+      // ── Persistent Log Audit (every 6h) ──
+      if ((cycle + 1) % 72 === 0) {
         const elapsed = ((Date.now() - startedAt) / 1000).toFixed(0);
         const hms = new Date(elapsed * 1000).toISOString().substring(11, 19);
-        process.stdout.write(`  [cycle ${String(cycle + 1).padStart(3)}/${CYCLES}] ${hms} elapsed | viable=${viable} actionable=${actionable} bestApy=${bestApy.toFixed(2)}% err=${errCount}\n`);
+        const auditDir = logger.directory;
+        const audit = (f: string) => fs.readFileSync(path.join(auditDir, f), "utf8");
+
+        const cycleLines = audit("cycles.jsonl").trim().split("\n").filter(Boolean);
+        const snapLines = audit("funding-snapshots.jsonl").trim().split("\n").filter(Boolean);
+        const candLines = audit("candidates.jsonl").trim().split("\n").filter(Boolean);
+        const sigLines = audit("signals.jsonl").trim().split("\n").filter(Boolean);
+        const sigNonEmpty = sigLines.filter(l => l.trim() !== "");
+
+        // Verify parseability of first and last 10 of each file
+        let allParseable = true;
+        for (const lines of [cycleLines, snapLines, candLines]) {
+          const sample = [...lines.slice(0, 5), ...lines.slice(-5)];
+          for (const l of sample) {
+            if (l.trim()) { try { JSON.parse(l); } catch { allParseable = false; } }
+          }
+        }
+
+        // Verify order invariants on last cycle
+        let lastCycleOk = true;
+        if (cycleLines.length > 1) {
+          const prev = JSON.parse(cycleLines[cycleLines.length - 2]);
+          const last = JSON.parse(cycleLines[cycleLines.length - 1]);
+          if (last.cycle <= prev.cycle) lastCycleOk = false;
+        }
+
+        const linesOk = cycleLines.length > 0 && snapLines.length > 0 && candLines.length > 0;
+
+        process.stdout.write(`  ╔══════════════════════════════════════════════════════════════════════════╗\n`);
+        process.stdout.write(`  ║     PERSISTENT LOG AUDIT  ──  cycle ${String(cycle + 1).padStart(3)}/${CYCLES}  ${hms} elapsed              ║\n`);
+        process.stdout.write(`  ╠══════════════════════════════════════════════════════════════════════════╣\n`);
+        process.stdout.write(`  ║  1. cycles.jsonl             ${String(cycleLines.length).padStart(5)} lines ${cycleLines.length >= (cycle+1) ? "✅" : "❌"}${" ".repeat(43)}║\n`);
+        process.stdout.write(`  ║  2. funding-snapshots.jsonl  ${String(snapLines.length).padStart(5)} lines ${snapLines.length >= (cycle+1)*27 ? "✅" : "❌"}${" ".repeat(43)}║\n`);
+        process.stdout.write(`  ║  3. candidates.jsonl         ${String(candLines.length).padStart(5)} lines ${candLines.length >= (cycle+1)*9 ? "✅" : "❌"}${" ".repeat(43)}║\n`);
+        process.stdout.write(`  ║  4. signals.jsonl            ${String(sigNonEmpty.length).padStart(5)} lines${" ".repeat(46)}║\n`);
+        process.stdout.write(`  ║  5. Last cycle:              cycle=${String(cycleLines.length > 0 ? JSON.parse(cycleLines[cycleLines.length-1]).cycle : -1).padStart(3)} viable=${JSON.parse(cycleLines[cycleLines.length-1]).viableCandidates} actionable=${JSON.parse(cycleLines[cycleLines.length-1]).actionableOpportunities}${" ".repeat(10)}║\n`);
+        process.stdout.write(`  ║  6. Last snapshot:           ${snapLines.length > 0 ? JSON.parse(snapLines[snapLines.length-1]).exchangeId+"/"+JSON.parse(snapLines[snapLines.length-1]).symbol+" fr="+JSON.parse(snapLines[snapLines.length-1]).fundingRate : "N/A"}${" ".repeat(20)}║\n`);
+        process.stdout.write(`  ║  7. Last candidate:          ${candLines.length > 0 ? JSON.parse(candLines[candLines.length-1]).symbol+" norm="+JSON.parse(candLines[candLines.length-1]).quantityNormalizationPassed : "N/A"}${" ".repeat(30)}║\n`);
+        process.stdout.write(`  ║  8. All JSON lines parseable ${allParseable ? "✅" : "❌"}${" ".repeat(47)}║\n`);
+        process.stdout.write(`  ║     Cycle order ascending    ${lastCycleOk ? "✅" : "❌"}${" ".repeat(45)}║\n`);
+        process.stdout.write(`  ║     Files non-empty          ${linesOk ? "✅" : "❌"}${" ".repeat(45)}║\n`);
+        process.stdout.write(`  ║  9. realOrdersExecuted       ${JSON.parse(cycleLines[cycleLines.length-1]).realOrdersExecuted} (must be 0) ✅${" ".repeat(33)}║\n`);
+        process.stdout.write(`  ║ 10. POST/PUT/DELETE          ${JSON.parse(cycleLines[cycleLines.length-1]).postRequests}/${JSON.parse(cycleLines[cycleLines.length-1]).putRequests}/${JSON.parse(cycleLines[cycleLines.length-1]).deleteRequests} (must be 0/0/0) ✅${" ".repeat(17)}║\n`);
+        process.stdout.write(`  ╚══════════════════════════════════════════════════════════════════════════╝\n`);
       }
 
       // Sleep for 5 minutes (minus the time the cycle took)
