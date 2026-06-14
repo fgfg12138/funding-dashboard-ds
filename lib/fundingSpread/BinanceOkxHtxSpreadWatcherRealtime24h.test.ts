@@ -89,7 +89,7 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
       expectedEndedAt,
       enabledExchanges: ALLOWED,
       pausedExchanges: PAUSED,
-      symbols: ["BTCUSDT","ETHUSDT","SOLUSDT","FILUSDT","ASTERUSDT","GIGGLEUSDT","SUSHIUSDT","ENSUSDT","SSVUSDT"],
+      symbols: [], // Will be overwritten after discovery
       thresholds: {
         minNetSpreadApy: MIN_SPREAD_APY,
         maxNotionalMismatchPercent: MAX_MISMATCH,
@@ -106,38 +106,69 @@ describeOrSkip("Binance + OKX + HTX Spread Watcher Real-Time 24h", () => {
 
     const connectors = { binance: new RealBinanceConnector(), okx: new RealOkxConnector(), htx: new RealHtxConnector() };
 
-    const candidates: Array<{ symbol: string; target: number }> = [
-      { symbol: "BTCUSDT", target: 5 }, { symbol: "ETHUSDT", target: 5 }, { symbol: "SOLUSDT", target: 5 },
-      { symbol: "FILUSDT", target: 10 }, { symbol: "ASTERUSDT", target: 10 }, { symbol: "GIGGLEUSDT", target: 10 },
-      { symbol: "SUSHIUSDT", target: 15 }, { symbol: "ENSUSDT", target: 15 }, { symbol: "SSVUSDT", target: 20 },
-    ];
-
-    // Preload exchange info (static across cycles)
+    // ── Dynamic symbol discovery: all USDT perpetuals on ALL 3 exchanges ──
     const [infoBN, okxData, htxData] = await Promise.all([
       (await fetch("https://fapi.binance.com/fapi/v1/exchangeInfo")).json(),
       (await fetch("https://www.okx.com/api/v5/public/instruments?instType=SWAP")).json(),
       (await fetch("https://api.hbdm.com/linear-swap-api/v1/swap_contract_info")).json(),
     ]);
 
-    type SymP = { symbol: string; target: number; coin: string; bnS: any; okxInst: any; htxInst: any; bnLot: any; bnSt: number; bnMinN: number; okxCt: number; okxLt: number; htxCt: number };
+    // Build symbol sets from each exchange (USDT-margined only)
+    const bnSet = new Set(
+      (infoBN.symbols as any[])
+        .filter((s: any) => s.symbol.endsWith("USDT") && s.contractType === "PERPETUAL")
+        .map((s: any) => s.symbol)
+    );
+    const okxSet = new Set(
+      (okxData.data as any[])
+        .filter((d: any) => d.instId.endsWith("-USDT-SWAP"))
+        .map((d: any) => d.instId.replace("-USDT-SWAP", "USDT"))
+    );
+    const htxSet = new Set(
+      (htxData.data as any[])
+        .filter((d: any) => d.contract_code.endsWith("-USDT"))
+        .map((d: any) => d.contract_code.replace("-USDT", "USDT"))
+    );
+
+    // Intersection: symbols on ALL 3 exchanges
+    const allSymbols = [...bnSet].filter((s) => okxSet.has(s) && htxSet.has(s)).sort();
+
+    type SymP = {
+      symbol: string; target: number; coin: string;
+      bnS: any; okxInst: any; htxInst: any;
+      bnSt: number; bnMinN: number; okxCt: number; okxLt: number; htxCt: number;
+    };
 
     const symParams: SymP[] = [];
-    for (const { symbol, target } of candidates) {
-      const coin = symbol.replace("USDT", "");
+    for (const symbol of allSymbols) {
       const bnS = infoBN.symbols.find((s: any) => s.symbol === symbol);
+      const coin = symbol.replace("USDT", "");
       const okxInst = okxData.data.find((d: any) => d.instId === coin + "-USDT-SWAP");
       const htxInst = htxData.data.find((d: any) => d.contract_code === coin + "-USDT");
       if (!bnS || !okxInst || !htxInst) continue;
+
       const bnLot = bnS.filters.find((f: any) => f.filterType === "LOT_SIZE");
       const bnSt = Number(bnLot?.stepSize ?? 0.1);
       const bnMinN = Number(bnS.filters.find((f: any) => f.filterType === "MIN_NOTIONAL")?.notional ?? 5);
       const okxCt = Number(okxInst.ctVal ?? 0.1);
       const okxLt = Number(okxInst.lotSz ?? 0.1);
       const htxCt = Number(htxInst.contract_size ?? 0.1);
-      symParams.push({ symbol, target, coin, bnS, okxInst, htxInst, bnLot, bnSt, bnMinN, okxCt, okxLt, htxCt });
+
+      // Dynamic target notional: at least $5, scaled by minNotional and lot size
+      const target = Math.max(5, bnMinN * 2);
+
+      symParams.push({ symbol, target, coin, bnS, okxInst, htxInst, bnSt, bnMinN, okxCt, okxLt, htxCt });
     }
 
-    const snapshots: CycleSnapshot[] = [];
+    // Update logger with actual symbol count and list
+    const discoveredSymbols = symParams.map((sp) => sp.symbol);
+    // Overwrite run.json with accurate symbol list
+    const runJsonPath = path.join(logger.directory, "run.json");
+    const runJson = JSON.parse(fs.readFileSync(runJsonPath, "utf8"));
+    runJson.symbols = discoveredSymbols;
+    fs.writeFileSync(runJsonPath, JSON.stringify(runJson, null, 2), "utf8");
+
+    process.stdout.write(`  Discovered ${symParams.length} symbols common to all 3 exchanges\n`);
     const allBlockedQty = new Set<string>();
     const allBlockedLiq = new Set<string>();
     const allNoSpread = new Set<string>();

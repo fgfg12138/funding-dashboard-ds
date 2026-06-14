@@ -1,0 +1,40 @@
+{
+  "runId": "run-20260614T124406-001",
+  "mode": "realtime",
+  "startedAt": 1781441046305,
+  "expectedEndedAt": 1781527446305,
+  "enabledExchanges": [
+    "binance",
+    "okx",
+    "htx"
+  ],
+  "pausedExchanges": [
+    "bybit",
+    "bitget",
+    "gate",
+    "hyperliquid"
+  ],
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "FILUSDT",
+    "ASTERUSDT",
+    "GIGGLEUSDT",
+    "SUSHIUSDT",
+    "ENSUSDT",
+    "SSVUSDT"
+  ],
+  "thresholds": {
+    "minNetSpreadApy": 3,
+    "maxNotionalMismatchPercent": 1,
+    "min24hVolumeUsd": 10000000,
+    "requireSignalFreshnessMs": 300000
+  },
+  "intervalMs": 300000,
+  "totalCycles": 288,
+  "realOrdersExecuted": 0,
+  "postRequests": 0,
+  "putRequests": 0,
+  "deleteRequests": 0
+}
